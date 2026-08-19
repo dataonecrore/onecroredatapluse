@@ -155,6 +155,163 @@ function Login({ onLogin }) {
   );
 }
 
+function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = (event) => {
+    event.preventDefault();
+
+    if (!email.trim() || !password.trim()) {
+      setError("Please enter both email and password.");
+      return;
+    }
+
+    setError("");
+    onLogin();
+  };
+
+  return (
+    <div className="login-page flex min-h-screen items-center justify-center px-3 py-4 sm:px-6 lg:px-8">
+      <div className="login-shell grid w-full max-w-[1240px] overflow-hidden rounded-[28px] bg-white shadow-2xl lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="login-hero relative hidden overflow-hidden p-10 text-white sm:p-12 lg:flex lg:min-h-[680px] lg:flex-col lg:justify-between xl:p-14">
+          <div className="login-grid-lines" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="login-brand-mark flex h-12 w-12 items-center justify-center rounded-2xl text-2xl font-bold">
+                ◉
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">OneCrore CRM</h1>
+                <p className="text-sm text-blue-200">OneCrore Plus Data</p>
+              </div>
+            </div>
+
+            <div className="mt-20 max-w-xl">
+              <p className="login-eyebrow inline-flex rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-200">
+                Customer intelligence
+              </p>
+              <h2 className="mt-6 text-4xl font-bold leading-[1.12] tracking-tight xl:text-5xl">
+                Manage every customer relationship from <span className="text-blue-300">one place.</span>
+              </h2>
+              <p className="mt-6 max-w-lg text-base leading-7 text-slate-300 xl:text-lg">
+                Search customers, maintain records, track activity, and manage your customer database through a clean and secure workspace.
+              </p>
+            </div>
+
+            <div className="mt-10 grid max-w-lg grid-cols-3 gap-4">
+              {[
+                ["♧", "Customer", "Management"],
+                ["⌁", "Activity", "Tracking"],
+                ["◇", "Secure", "Workspace"],
+              ].map(([icon, firstLine, secondLine]) => (
+                <div key={firstLine} className="text-center text-xs text-blue-100">
+                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-blue-400/30 bg-blue-500/20 text-xl text-blue-200">
+                    {icon}
+                  </div>
+                  <p className="mt-2">{firstLine}</p>
+                  <p>{secondLine}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="login-dashboard-art relative z-10 mt-10 flex items-end gap-4" aria-hidden="true">
+            <div className="login-art-card h-20 w-28 -rotate-12 rounded-xl p-3">
+              <div className="h-3 w-3 rounded-full bg-blue-300" />
+              <div className="mt-3 h-2 w-16 rounded bg-blue-300/60" />
+              <div className="mt-2 h-2 w-20 rounded bg-blue-300/30" />
+            </div>
+            <div className="login-art-card h-28 w-36 rotate-[-7deg] rounded-xl p-3">
+              <div className="mt-12 h-2 w-20 rounded bg-blue-300/40" />
+              <div className="mt-2 h-2 w-28 rounded bg-blue-300/20" />
+            </div>
+            <div className="login-art-chart flex h-28 w-32 items-center justify-center rounded-xl">
+              ◔
+            </div>
+          </div>
+
+          <p className="relative z-10 mt-8 text-sm text-blue-200">◈ Secure. Reliable. Built for growth.</p>
+        </section>
+
+        <section className="login-form-panel flex min-h-[650px] items-center justify-center px-6 py-10 sm:px-12 lg:px-14 xl:px-20">
+          <div className="w-full max-w-[520px]">
+            <div className="mb-10 lg:hidden">
+              <p className="text-lg font-bold text-slate-950">OneCrore CRM</p>
+              <p className="text-sm text-slate-500">OneCrore Plus Data</p>
+            </div>
+
+            <p className="text-sm font-bold uppercase tracking-[0.24em] text-blue-600">Welcome back</p>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Sign in to your account</h2>
+            <p className="mt-4 text-base text-slate-500">Enter your credentials to access OneCrore CRM.</p>
+
+            <form className="mt-10 space-y-6" onSubmit={handleLogin}>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700">Email address</label>
+                <div className="login-input-wrap mt-2">
+                  <span aria-hidden="true">✉</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    className="w-full border-0 bg-transparent px-3 py-3.5 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <label className="block text-sm font-semibold text-slate-700">Password</label>
+                  <button type="button" className="text-sm font-semibold text-blue-600 hover:text-blue-700">Forgot password?</button>
+                </div>
+                <div className="login-input-wrap mt-2">
+                  <span aria-hidden="true">♙</span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full border-0 bg-transparent px-3 py-3.5 outline-none"
+                  />
+                  <button type="button" onClick={() => setShowPassword((value) => !value)} className="px-2 text-slate-500 hover:text-slate-800">
+                    {showPassword ? "Hide" : "◉"}
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-3 text-sm text-slate-600">
+                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 accent-blue-600" />
+                Remember me
+              </label>
+
+              {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+              <button type="submit" className="login-submit w-full rounded-xl px-4 py-3.5 font-semibold text-white transition hover:opacity-90">
+                Sign in <span className="ml-2">→</span>
+              </button>
+            </form>
+
+            <div className="my-7 flex items-center gap-4 text-sm text-slate-400">
+              <div className="h-px flex-1 bg-slate-200" />
+              or
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <button type="button" className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 px-4 py-3.5 font-semibold text-slate-700 transition hover:bg-slate-50">
+              <span className="text-lg font-bold text-red-500">G</span> Sign in with Google
+            </button>
+            <p className="mt-8 text-center text-sm text-slate-500">Don&apos;t have an account? <span className="font-semibold text-blue-600">Contact your administrator.</span></p>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function CustomerForm({ customer, onSave, onCancel, saving }) {
   const [form, setForm] = useState(
     customer || {
@@ -1149,7 +1306,7 @@ function App() {
       onLogout={() => setLoggedIn(false)}
     />
   ) : (
-    <Login onLogin={() => setLoggedIn(true)} />
+    <LoginScreen onLogin={() => setLoggedIn(true)} />
   );
 }
 
