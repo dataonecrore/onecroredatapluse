@@ -611,7 +611,11 @@ function Dashboard({ onLogout }) {
       const data = await response.json();
       setCustomers(data);
     } catch (error) {
-      setApiError(error.message || "Unable to connect to the backend.");
+      setApiError(
+        error instanceof TypeError
+          ? `Unable to connect to the backend at ${API_BASE_URL}. Check that the API is running and that VITE_API_BASE_URL points to its public URL.`
+          : error.message || "Unable to connect to the backend."
+      );
     } finally {
       setLoading(false);
     }
@@ -864,36 +868,6 @@ function Dashboard({ onLogout }) {
               {apiError}
             </div>
           )}
-
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-              <p className="text-sm font-medium text-slate-500">Total Customers</p>
-              <p className="mt-3 text-2xl font-bold text-slate-950 sm:text-3xl">
-                {customers.length}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-              <p className="text-sm font-medium text-slate-500">Active Customers</p>
-              <p className="mt-3 text-2xl font-bold text-slate-950 sm:text-3xl">
-                {customers.filter((customer) => customer.status === "Active").length}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-              <p className="text-sm font-medium text-slate-500">Follow-ups</p>
-              <p className="mt-3 text-2xl font-bold text-slate-950 sm:text-3xl">
-                {customers.filter((customer) => customer.status === "Follow-up").length}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-              <p className="text-sm font-medium text-slate-500">Inactive</p>
-              <p className="mt-3 text-2xl font-bold text-slate-950 sm:text-3xl">
-                {customers.filter((customer) => customer.status === "Inactive").length}
-              </p>
-            </div>
-          </div>
 
           <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
