@@ -1,4 +1,4 @@
-# PulseCRM
+# OneCrore CRM
 
 Frontend stack:
 - React

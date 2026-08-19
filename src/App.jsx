@@ -35,7 +35,7 @@ function Login({ onLogin }) {
               </div>
 
               <div>
-                <h1 className="text-xl font-semibold">PulseCRM</h1>
+                <h1 className="text-xl font-semibold">OneCrore CRM</h1>
                 <p className="text-sm text-blue-200">OneCrore Plus Data</p>
               </div>
             </div>
@@ -75,7 +75,7 @@ function Login({ onLogin }) {
             </h2>
 
             <p className="mt-3 text-slate-500">
-              Enter your credentials to access PulseCRM.
+              Enter your credentials to access OneCrore CRM.
             </p>
 
             <form className="mt-8 space-y-6 sm:mt-10" onSubmit={handleLogin}>
@@ -784,7 +784,7 @@ function Dashboard({ onLogout, role }) {
     );
     const link = document.createElement("a");
     link.href = downloadUrl;
-    link.download = "pulsecrm-customers.csv";
+    link.download = "onecrore-customers.csv";
     link.click();
     URL.revokeObjectURL(downloadUrl);
   };
@@ -818,7 +818,7 @@ function Dashboard({ onLogout, role }) {
             </div>
 
             <div>
-              <p className="font-bold">PulseCRM</p>
+              <p className="font-bold">OneCrore CRM</p>
               <p className="text-xs text-slate-400">OneCrore Plus Data</p>
             </div>
           </div>
@@ -864,7 +864,7 @@ function Dashboard({ onLogout, role }) {
                 </div>
 
                 <div>
-                  <p className="font-bold text-sm">PulseCRM</p>
+                  <p className="font-bold text-sm">OneCrore CRM</p>
                   <p className="text-[11px] text-slate-400">OneCrore Plus Data</p>
                 </div>
               </div>
