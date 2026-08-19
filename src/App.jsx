@@ -630,7 +630,7 @@ function CustomerImport() {
   );
 }
 
-function Dashboard({ onLogout, role, isDark, onToggleTheme }) {
+function Dashboard({ onLogout, role, theme, onThemeChange }) {
   const isAdmin = role === "admin";
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
@@ -920,11 +920,11 @@ function Dashboard({ onLogout, role, isDark, onToggleTheme }) {
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
-                onClick={onToggleTheme}
+                onClick={() => onThemeChange(theme === "light" ? "dark" : theme === "dark" ? "night" : "light")}
                 className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark-mode-control"
-                aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label={`Current theme: ${theme}. Switch theme`}
               >
-                {isDark ? "Light" : "Dark"}
+                {theme === "light" ? "Light" : theme === "dark" ? "Dark" : "Night"}
               </button>
 
               {isAdmin && (
@@ -1148,20 +1148,22 @@ function Dashboard({ onLogout, role, isDark, onToggleTheme }) {
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [role, setRole] = useState("user");
-  const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem("onecrore-theme") === "dark";
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem("onecrore-theme");
+    return ["light", "dark", "night"].includes(savedTheme) ? savedTheme : "light";
   });
 
   useEffect(() => {
-    document.documentElement.classList.toggle("theme-dark", isDark);
-    localStorage.setItem("onecrore-theme", isDark ? "dark" : "light");
-  }, [isDark]);
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    document.documentElement.classList.toggle("theme-night", theme === "night");
+    localStorage.setItem("onecrore-theme", theme);
+  }, [theme]);
 
   return loggedIn ? (
     <Dashboard
       role={role}
-      isDark={isDark}
-      onToggleTheme={() => setIsDark((value) => !value)}
+      theme={theme}
+      onThemeChange={setTheme}
       onLogout={() => setLoggedIn(false)}
     />
   ) : (

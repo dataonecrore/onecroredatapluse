@@ -35,7 +35,8 @@ button {
   cursor: pointer;
 }
 
-.theme-dark {
+.theme-dark,
+.theme-night {
   color-scheme: dark;
   background: #0f172a;
 }
@@ -97,4 +98,32 @@ button {
 
 .theme-dark .dark-mode-control:hover {
   background: #334155 !important;
+}
+
+.theme-night body,
+.theme-night .bg-slate-100 {
+  background: #070b14 !important;
+}
+
+.theme-night .bg-white {
+  background: #111827 !important;
+}
+
+.theme-night .bg-slate-50 {
+  background: #182235 !important;
+}
+
+.theme-night .bg-slate-950 {
+  background: #02040a !important;
+}
+
+.theme-night input,
+.theme-night select,
+.theme-night textarea {
+  background: #0b1220 !important;
+  border-color: #334155 !important;
+}
+
+.theme-night .dark-mode-control:hover {
+  background: #1e293b !important;
 }
