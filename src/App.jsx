@@ -630,7 +630,7 @@ function CustomerImport() {
   );
 }
 
-function Dashboard({ onLogout, role }) {
+function Dashboard({ onLogout, role, isDark, onToggleTheme }) {
   const isAdmin = role === "admin";
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
@@ -918,6 +918,15 @@ function Dashboard({ onLogout, role }) {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={onToggleTheme}
+                className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark-mode-control"
+                aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {isDark ? "Light" : "Dark"}
+              </button>
+
               {isAdmin && (
                 <button
                   onClick={openAddCustomer}
@@ -1139,9 +1148,22 @@ function Dashboard({ onLogout, role }) {
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [role, setRole] = useState("user");
+  const [isDark, setIsDark] = useState(() => {
+    return localStorage.getItem("onecrore-theme") === "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("theme-dark", isDark);
+    localStorage.setItem("onecrore-theme", isDark ? "dark" : "light");
+  }, [isDark]);
 
   return loggedIn ? (
-    <Dashboard role={role} onLogout={() => setLoggedIn(false)} />
+    <Dashboard
+      role={role}
+      isDark={isDark}
+      onToggleTheme={() => setIsDark((value) => !value)}
+      onLogout={() => setLoggedIn(false)}
+    />
   ) : (
     <Login
       onLogin={(selectedRole) => {

@@ -34,3 +34,67 @@ input {
 button {
   cursor: pointer;
 }
+
+.theme-dark {
+  color-scheme: dark;
+  background: #0f172a;
+}
+
+.theme-dark body,
+.theme-dark .bg-slate-100 {
+  background: #0f172a !important;
+}
+
+.theme-dark .bg-white {
+  background: #1e293b !important;
+}
+
+.theme-dark .bg-slate-50 {
+  background: #243247 !important;
+}
+
+.theme-dark .bg-slate-950 {
+  background: #020617 !important;
+}
+
+.theme-dark .text-slate-950,
+.theme-dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.theme-dark .text-slate-700,
+.theme-dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.theme-dark .border-slate-200,
+.theme-dark .border-slate-300 {
+  border-color: #334155 !important;
+}
+
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea {
+  background: #172033 !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.theme-dark .dark-mode-control {
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+
+.theme-dark .dark-mode-control:hover {
+  background: #334155 !important;
+}
