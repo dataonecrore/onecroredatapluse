@@ -1,34 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const initialCustomers = [
-  {
-    id: "CUS-1001",
-    name: "Ananya Rao",
-    email: "ananya@company.com",
-    phone: "+91 98765 43210",
-    company: "Aster Labs",
-    status: "Active",
-    lastContact: "Today",
-  },
-  {
-    id: "CUS-1002",
-    name: "Rahul Verma",
-    email: "rahul@northstar.in",
-    phone: "+91 99887 66554",
-    company: "Northstar Retail",
-    status: "Follow-up",
-    lastContact: "Yesterday",
-  },
-  {
-    id: "CUS-1003",
-    name: "Meera Shah",
-    email: "meera@finovo.in",
-    phone: "+91 91234 56789",
-    company: "Finovo",
-    status: "Active",
-    lastContact: "2 days ago",
-  },
-];
+const API_BASE_URL = "http://127.0.0.1:8000";
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -184,7 +156,7 @@ function Login({ onLogin }) {
   );
 }
 
-function CustomerForm({ customer, onSave, onCancel }) {
+function CustomerForm({ customer, onSave, onCancel, saving }) {
   const [form, setForm] = useState(
     customer || {
       name: "",
@@ -192,6 +164,7 @@ function CustomerForm({ customer, onSave, onCancel }) {
       phone: "",
       company: "",
       status: "Active",
+      notes: "",
     }
   );
 
@@ -204,16 +177,28 @@ function CustomerForm({ customer, onSave, onCancel }) {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!form.name.trim() || !form.email.trim()) {
+    if (!form.name?.trim() || !form.email?.trim()) {
       setError("Customer name and email are required.");
       return;
     }
 
     setError("");
-    onSave(form);
+
+    try {
+      await onSave({
+        name: form.name,
+        email: form.email,
+        phone: form.phone || "",
+        company: form.company || "",
+        status: form.status || "Active",
+        notes: form.notes || "",
+      });
+    } catch (err) {
+      setError(err.message || "Unable to save customer.");
+    }
   };
 
   return (
@@ -236,7 +221,7 @@ function CustomerForm({ customer, onSave, onCancel }) {
             </label>
 
             <input
-              value={form.name}
+              value={form.name || ""}
               onChange={(e) => updateField("name", e.target.value)}
               placeholder="Customer full name"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
@@ -250,7 +235,7 @@ function CustomerForm({ customer, onSave, onCancel }) {
 
             <input
               type="email"
-              value={form.email}
+              value={form.email || ""}
               onChange={(e) => updateField("email", e.target.value)}
               placeholder="customer@example.com"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
@@ -263,7 +248,7 @@ function CustomerForm({ customer, onSave, onCancel }) {
             </label>
 
             <input
-              value={form.phone}
+              value={form.phone || ""}
               onChange={(e) => updateField("phone", e.target.value)}
               placeholder="+91 98765 43210"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
@@ -276,7 +261,7 @@ function CustomerForm({ customer, onSave, onCancel }) {
             </label>
 
             <input
-              value={form.company}
+              value={form.company || ""}
               onChange={(e) => updateField("company", e.target.value)}
               placeholder="Company name"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
@@ -289,7 +274,7 @@ function CustomerForm({ customer, onSave, onCancel }) {
             </label>
 
             <select
-              value={form.status}
+              value={form.status || "Active"}
               onChange={(e) => updateField("status", e.target.value)}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none"
             >
@@ -297,6 +282,20 @@ function CustomerForm({ customer, onSave, onCancel }) {
               <option>Follow-up</option>
               <option>Inactive</option>
             </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-slate-700">
+              Notes
+            </label>
+
+            <textarea
+              value={form.notes || ""}
+              onChange={(e) => updateField("notes", e.target.value)}
+              placeholder="Customer notes"
+              rows={4}
+              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+            />
           </div>
 
           {error && (
@@ -309,16 +308,22 @@ function CustomerForm({ customer, onSave, onCancel }) {
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              disabled={saving}
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               Cancel
             </button>
 
             <button
               type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+              disabled={saving}
+              className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {customer ? "Update Customer" : "Save Customer"}
+              {saving
+                ? "Saving..."
+                : customer
+                  ? "Update Customer"
+                  : "Save Customer"}
             </button>
           </div>
         </form>
@@ -327,7 +332,7 @@ function CustomerForm({ customer, onSave, onCancel }) {
   );
 }
 
-function CustomerDetails({ customer, onEdit, onClose }) {
+function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
@@ -349,21 +354,35 @@ function CustomerDetails({ customer, onEdit, onClose }) {
             ["Phone", customer.phone || "-"],
             ["Company", customer.company || "-"],
             ["Status", customer.status],
-            ["Last Contact", customer.lastContact],
+            [
+              "Created",
+              customer.created_at
+                ? new Date(customer.created_at).toLocaleString()
+                : "-",
+            ],
+            ["Notes", customer.notes || "-"],
           ].map(([label, value]) => (
             <div key={label}>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {label}
               </p>
 
-              <p className="mt-1 text-sm font-medium text-slate-900">
+              <p className="mt-1 text-sm font-medium text-slate-900 break-words">
                 {value}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-slate-200 p-5">
+        <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 p-5">
+          <button
+            onClick={onDelete}
+            disabled={deleting}
+            className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+          >
+            {deleting ? "Deleting..." : "Delete"}
+          </button>
+
           <button
             onClick={onClose}
             className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -384,12 +403,40 @@ function CustomerDetails({ customer, onEdit, onClose }) {
 }
 
 function Dashboard({ onLogout }) {
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [apiError, setApiError] = useState("");
+
+  const loadCustomers = async () => {
+    setLoading(true);
+    setApiError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/customers`);
+
+      if (!response.ok) {
+        throw new Error("Unable to load customers.");
+      }
+
+      const data = await response.json();
+      setCustomers(data);
+    } catch (error) {
+      setApiError(error.message || "Unable to connect to the backend.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) => {
@@ -399,6 +446,7 @@ function Dashboard({ onLogout }) {
         customer.company,
         customer.phone,
       ]
+        .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(search.toLowerCase());
@@ -410,37 +458,77 @@ function Dashboard({ onLogout }) {
     });
   }, [customers, search, statusFilter]);
 
-  const saveCustomer = (form) => {
-    if (editingCustomer) {
-      setCustomers((previous) =>
-        previous.map((customer) =>
-          customer.id === editingCustomer.id
-            ? {
-                ...customer,
-                ...form,
-              }
-            : customer
-        )
+  const saveCustomer = async (form) => {
+    setSaving(true);
+    setApiError("");
+
+    try {
+      const isEditing = Boolean(editingCustomer);
+
+      const response = await fetch(
+        isEditing
+          ? `${API_BASE_URL}/customers/${editingCustomer.id}`
+          : `${API_BASE_URL}/customers`,
+        {
+          method: isEditing ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(form),
+        }
       );
-    } else {
-      const existingIds = customers.map((customer) => {
-        const numericPart = Number(customer.id.replace("CUS-", ""));
-        return Number.isNaN(numericPart) ? 1000 : numericPart;
-      });
 
-      const nextId = Math.max(1000, ...existingIds) + 1;
+      if (!response.ok) {
+        let message = "Unable to save customer.";
 
-      const newCustomer = {
-        ...form,
-        id: `CUS-${nextId}`,
-        lastContact: "New",
-      };
+        try {
+          const errorData = await response.json();
+          message = errorData.detail || message;
+        } catch {
+          // Ignore JSON parsing failure.
+        }
 
-      setCustomers((previous) => [newCustomer, ...previous]);
+        throw new Error(message);
+      }
+
+      await loadCustomers();
+
+      setShowForm(false);
+      setEditingCustomer(null);
+    } finally {
+      setSaving(false);
     }
+  };
 
-    setShowForm(false);
-    setEditingCustomer(null);
+  const deleteCustomer = async (customer) => {
+    const confirmed = window.confirm(
+      `Delete ${customer.name}? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setApiError("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/customers/${customer.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Unable to delete customer.");
+      }
+
+      setSelectedCustomer(null);
+      await loadCustomers();
+    } catch (error) {
+      setApiError(error.message || "Unable to delete customer.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openAddCustomer = () => {
@@ -505,7 +593,6 @@ function Dashboard({ onLogout }) {
           <div className="flex items-center justify-between gap-4 px-6 py-4 lg:px-8">
             <div>
               <h1 className="text-xl font-bold text-slate-950">Dashboard</h1>
-
               <p className="text-sm text-slate-500">
                 Manage customer information and activity
               </p>
@@ -530,6 +617,12 @@ function Dashboard({ onLogout }) {
         </header>
 
         <div className="p-6 lg:p-8">
+          {apiError && (
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {apiError}
+            </div>
+          )}
+
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-medium text-slate-500">
@@ -574,7 +667,6 @@ function Dashboard({ onLogout }) {
             <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-950">Customers</h2>
-
                 <p className="mt-1 text-sm text-slate-500">
                   Search, view and edit customer records
                 </p>
@@ -602,99 +694,115 @@ function Dashboard({ onLogout }) {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="bg-slate-50">
-                  <tr>
-                    {[
-                      "Customer",
-                      "Company",
-                      "Phone",
-                      "Status",
-                      "Last Contact",
-                      "Action",
-                    ].map((heading) => (
-                      <th
-                        key={heading}
-                        className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {filteredCustomers.map((customer) => (
-                    <tr
-                      key={customer.id}
-                      className="transition hover:bg-slate-50"
-                    >
-                      <td className="px-5 py-4">
-                        <p className="font-semibold text-slate-900">
-                          {customer.name}
-                        </p>
-
-                        <p className="text-sm text-slate-500">
-                          {customer.email}
-                        </p>
-                      </td>
-
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {customer.company || "-"}
-                      </td>
-
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {customer.phone || "-"}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            customer.status === "Active"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : customer.status === "Follow-up"
-                                ? "bg-amber-50 text-amber-700"
-                                : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {customer.status}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {customer.lastContact}
-                      </td>
-
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => setSelectedCustomer(customer)}
-                          className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-                        >
-                          View
-                        </button>
-
-                        <button
-                          onClick={() => openEditCustomer(customer)}
-                          className="ml-4 text-sm font-semibold text-slate-600 hover:text-slate-900"
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {filteredCustomers.length === 0 && (
+              {loading ? (
                 <div className="px-6 py-14 text-center">
                   <p className="font-semibold text-slate-700">
-                    No customers found
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    Try changing your search or status filter.
+                    Loading customers...
                   </p>
                 </div>
+              ) : (
+                <>
+                  <table className="min-w-full">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        {[
+                          "Customer",
+                          "Company",
+                          "Phone",
+                          "Status",
+                          "Created",
+                          "Action",
+                        ].map((heading) => (
+                          <th
+                            key={heading}
+                            className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                          >
+                            {heading}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredCustomers.map((customer) => (
+                        <tr
+                          key={customer.id}
+                          className="transition hover:bg-slate-50"
+                        >
+                          <td className="px-5 py-4">
+                            <p className="font-semibold text-slate-900">
+                              {customer.name}
+                            </p>
+
+                            <p className="text-sm text-slate-500">
+                              {customer.email}
+                            </p>
+                          </td>
+
+                          <td className="px-5 py-4 text-sm text-slate-600">
+                            {customer.company || "-"}
+                          </td>
+
+                          <td className="px-5 py-4 text-sm text-slate-600">
+                            {customer.phone || "-"}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                customer.status === "Active"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : customer.status === "Follow-up"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {customer.status}
+                            </span>
+                          </td>
+
+                          <td className="px-5 py-4 text-sm text-slate-600">
+                            {customer.created_at
+                              ? new Date(
+                                  customer.created_at
+                                ).toLocaleDateString()
+                              : "-"}
+                          </td>
+
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() =>
+                                setSelectedCustomer(customer)
+                              }
+                              className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                            >
+                              View
+                            </button>
+
+                            <button
+                              onClick={() => openEditCustomer(customer)}
+                              className="ml-4 text-sm font-semibold text-slate-600 hover:text-slate-900"
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {filteredCustomers.length === 0 && (
+                    <div className="px-6 py-14 text-center">
+                      <p className="font-semibold text-slate-700">
+                        No customers found
+                      </p>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Try changing your search or status filter.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -704,6 +812,7 @@ function Dashboard({ onLogout }) {
       {showForm && (
         <CustomerForm
           customer={editingCustomer}
+          saving={saving}
           onSave={saveCustomer}
           onCancel={() => {
             setShowForm(false);
@@ -715,6 +824,8 @@ function Dashboard({ onLogout }) {
       {selectedCustomer && (
         <CustomerDetails
           customer={selectedCustomer}
+          deleting={deleting}
+          onDelete={() => deleteCustomer(selectedCustomer)}
           onClose={() => setSelectedCustomer(null)}
           onEdit={() => {
             openEditCustomer(selectedCustomer);
