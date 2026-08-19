@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -389,6 +390,199 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
   );
 }
 
+function CustomerImport() {
+  const [file, setFile] = useState(null);
+  const [importMode, setImportMode] = useState("update");
+  const [duplicateKeys, setDuplicateKeys] = useState({ phone: true, email: true });
+  const [job, setJob] = useState(null);
+  const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const toggleDuplicateKey = (key) => {
+    setDuplicateKeys((previous) => ({
+      ...previous,
+      [key]: !previous[key],
+    }));
+  };
+
+  const handleUpload = async (event) => {
+    event.preventDefault();
+
+    if (!file) {
+      setError("Choose a CSV or XLSX file first.");
+      return;
+    }
+
+    if (!duplicateKeys.phone && !duplicateKeys.email) {
+      setError("Select at least one duplicate identification field.");
+      return;
+    }
+
+    setError("");
+    setUploading(true);
+    setJob(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("import_mode", importMode);
+      formData.append(
+        "duplicate_keys",
+        Object.entries(duplicateKeys)
+          .filter(([, enabled]) => enabled)
+          .map(([key]) => key)
+          .join(",")
+      );
+
+      const response = await fetch(`${API_BASE_URL}/imports/customers`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "Unable to upload file.");
+      }
+
+      let currentJob = await response.json();
+      setJob(currentJob);
+
+      while (currentJob.status === "processing") {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const statusResponse = await fetch(`${API_BASE_URL}/imports/${currentJob.id}`);
+
+        if (!statusResponse.ok) {
+          throw new Error("Unable to read import progress.");
+        }
+
+        currentJob = await statusResponse.json();
+        setJob(currentJob);
+      }
+    } catch (uploadError) {
+      setError(uploadError.message || "Unable to upload file.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div>
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
+          Admin workspace
+        </p>
+        <h2 className="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl">
+          Import Customers
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
+          Stage a CSV or Excel file for validation before it enters the customer database.
+        </p>
+      </div>
+
+      <form onSubmit={handleUpload} className="mt-6 space-y-5">
+        <label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-6 text-center transition hover:border-blue-500 hover:bg-blue-50/30">
+          <span className="text-3xl text-blue-600">↑</span>
+          <span className="mt-3 font-semibold text-slate-900">
+            {file ? file.name : "Choose a customer file"}
+          </span>
+          <span className="mt-1 text-sm text-slate-500">CSV or XLSX, up to 100 MB</span>
+          <input
+            type="file"
+            accept=".csv,.xlsx"
+            className="sr-only"
+            onChange={(event) => setFile(event.target.files?.[0] || null)}
+          />
+        </label>
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          <fieldset className="rounded-2xl border border-slate-200 bg-white p-5">
+            <legend className="px-1 text-sm font-semibold text-slate-900">Import mode</legend>
+            <div className="mt-3 space-y-3 text-sm text-slate-600">
+              {[
+                ["update", "Add new + update existing"],
+                ["new", "Add new customers only"],
+              ].map(([value, label]) => (
+                <label key={value} className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="import-mode"
+                    value={value}
+                    checked={importMode === value}
+                    onChange={(event) => setImportMode(event.target.value)}
+                    className="h-4 w-4 accent-blue-600"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="rounded-2xl border border-slate-200 bg-white p-5">
+            <legend className="px-1 text-sm font-semibold text-slate-900">
+              Identify duplicates by
+            </legend>
+            <div className="mt-3 space-y-3 text-sm text-slate-600">
+              {[
+                ["phone", "Phone number"],
+                ["email", "Email address"],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={duplicateKeys[key]}
+                    onChange={() => toggleDuplicateKey(key)}
+                    className="h-4 w-4 accent-blue-600"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {job && (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-slate-900">{job.filename}</p>
+                <p className="mt-1 text-sm text-slate-600">{job.message}</p>
+              </div>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase text-blue-700">
+                {job.status}
+              </span>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-blue-100">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all"
+                style={{ width: `${job.progress || 0}%` }}
+              />
+            </div>
+            {job.status === "ready" && (
+              <p className="mt-3 text-sm text-slate-700">
+                {job.processed.toLocaleString()} rows checked, {job.invalid.toLocaleString()} invalid.
+              </p>
+            )}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={uploading}
+          className="w-full rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        >
+          {uploading ? "Uploading and validating..." : "Start Import"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function Dashboard({ onLogout }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
@@ -401,6 +595,7 @@ function Dashboard({ onLogout }) {
   const [deleting, setDeleting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeView, setActiveView] = useState("Dashboard");
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -525,7 +720,12 @@ function Dashboard({ onLogout }) {
     setShowForm(true);
   };
 
-  const navItems = ["Dashboard", "Customers", "Follow-ups", "Reports", "Settings"];
+  const navItems = ["Dashboard", "Customers", "Import Customers", "Follow-ups", "Reports", "Settings"];
+
+  const selectView = (item) => {
+    setActiveView(item);
+    setMobileMenuOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -544,11 +744,12 @@ function Dashboard({ onLogout }) {
         </div>
 
         <nav className="flex-1 space-y-2 px-4 py-6">
-          {navItems.map((item, index) => (
+          {navItems.map((item) => (
             <button
               key={item}
+              onClick={() => selectView(item)}
               className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
-                index === 0 ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
+                activeView === item ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
               }`}
             >
               {item}
@@ -589,13 +790,13 @@ function Dashboard({ onLogout }) {
             </div>
 
             <nav className="space-y-2 px-4 py-5">
-              {navItems.map((item, index) => (
+              {navItems.map((item) => (
                 <button
                   key={item}
                   className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
-                    index === 0 ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
+                    activeView === item ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
                   }`}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={() => selectView(item)}
                 >
                   {item}
                 </button>
@@ -628,7 +829,7 @@ function Dashboard({ onLogout }) {
               </button>
 
               <div>
-                <h1 className="text-lg font-bold text-slate-950 sm:text-xl">Dashboard</h1>
+                <h1 className="text-lg font-bold text-slate-950 sm:text-xl">{activeView}</h1>
                 <p className="text-xs text-slate-500 sm:text-sm">
                   Manage customer information and activity
                 </p>
@@ -654,6 +855,10 @@ function Dashboard({ onLogout }) {
         </header>
 
         <div className="p-4 sm:p-6 lg:p-8">
+          {activeView === "Import Customers" ? (
+            <CustomerImport />
+          ) : (
+          <>
           {apiError && (
             <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {apiError}
@@ -876,6 +1081,8 @@ function Dashboard({ onLogout }) {
               </>
             )}
           </div>
+          </>
+          )}
         </div>
       </main>
 
@@ -891,7 +1098,7 @@ function Dashboard({ onLogout }) {
         />
       )}
 
-      {selectedCustomer && (
+          {selectedCustomer && (
         <CustomerDetails
           customer={selectedCustomer}
           deleting={deleting}
@@ -902,7 +1109,7 @@ function Dashboard({ onLogout }) {
             setSelectedCustomer(null);
           }}
         />
-      )}
+          )}
     </div>
   );
 }

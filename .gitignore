@@ -4,5 +4,6 @@ backend/.env
 __pycache__/
 *.pyc
 backend/venv
+backend/imports/
 .env.local
 dist/
