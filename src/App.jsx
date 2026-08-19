@@ -35,7 +35,6 @@ function Login({ onLogin }) {
 
               <div>
                 <h1 className="text-xl font-semibold">OneCrore CRM</h1>
-                <p className="text-sm text-blue-200">OneCrore Plus Data</p>
               </div>
             </div>
 
@@ -186,7 +185,6 @@ function LoginScreen({ onLogin }) {
               </div>
               <div>
                 <h1 className="text-xl font-bold tracking-tight">OneCrore CRM</h1>
-                <p className="text-sm text-blue-200">OneCrore Plus Data</p>
               </div>
             </div>
 
@@ -241,7 +239,6 @@ function LoginScreen({ onLogin }) {
           <div className="w-full max-w-[520px]">
             <div className="mb-10 lg:hidden">
               <p className="text-lg font-bold text-slate-950">OneCrore CRM</p>
-              <p className="text-sm text-slate-500">OneCrore Plus Data</p>
             </div>
 
             <p className="text-sm font-bold uppercase tracking-[0.24em] text-blue-600">Welcome back</p>
@@ -960,7 +957,6 @@ function Dashboard({ onLogout, role = "user", theme, onThemeChange }) {
 
             <div>
               <p className="font-bold">OneCrore CRM</p>
-              <p className="text-xs text-slate-400">OneCrore Plus Data</p>
             </div>
           </div>
         </div>
@@ -1006,7 +1002,6 @@ function Dashboard({ onLogout, role = "user", theme, onThemeChange }) {
 
                 <div>
                   <p className="font-bold text-sm">OneCrore CRM</p>
-                  <p className="text-[11px] text-slate-400">OneCrore Plus Data</p>
                 </div>
               </div>
             </div>
