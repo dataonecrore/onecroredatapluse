@@ -738,7 +738,6 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
 
                 <div>
                   <p className="font-bold text-sm">OneCrore CRM</p>
-                  <p className="text-[11px] text-slate-400">OneCrore Plus Data</p>
                 </div>
               </div>
             </div>
