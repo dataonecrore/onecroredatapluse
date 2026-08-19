@@ -33,7 +33,7 @@ function Login({ onLogin }) {
 
               <div>
                 <h1 className="text-xl font-semibold">Customer Management</h1>
-                <p className="text-sm text-blue-200">OneCrore Data Plus</p>
+                <p className="text-sm text-blue-200">OneCrore Plus Data</p>
               </div>
             </div>
 
@@ -552,7 +552,7 @@ function Dashboard({ onLogout }) {
 
             <div>
               <p className="font-bold">Customer Management</p>
-              <p className="text-xs text-slate-400">OneCrore Data Plus</p>
+              <p className="text-xs text-slate-400">OneCrore Plus Data</p>
             </div>
           </div>
         </div>
