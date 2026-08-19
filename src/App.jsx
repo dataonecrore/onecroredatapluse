@@ -7,7 +7,6 @@ const API_BASE_URL =
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("user");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
@@ -21,7 +20,7 @@ function Login({ onLogin }) {
     }
 
     setError("");
-    onLogin(role);
+    onLogin();
   };
 
   return (
@@ -124,21 +123,6 @@ function Login({ onLogin }) {
                     {showPassword ? "Hide" : "Show"}
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700">
-                  Account type
-                </label>
-
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-                >
-                  <option value="user">User - view and copy</option>
-                  <option value="admin">Admin - full access</option>
-                </select>
               </div>
 
               <label className="flex items-center gap-3 text-sm text-slate-600">
@@ -630,7 +614,7 @@ function CustomerImport() {
   );
 }
 
-function Dashboard({ onLogout, role, theme, onThemeChange }) {
+function Dashboard({ onLogout, role = "user", theme, onThemeChange }) {
   const isAdmin = role === "admin";
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
@@ -1147,7 +1131,6 @@ function Dashboard({ onLogout, role, theme, onThemeChange }) {
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [role, setRole] = useState("user");
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem("onecrore-theme");
     return ["light", "dark", "night"].includes(savedTheme) ? savedTheme : "light";
@@ -1161,18 +1144,12 @@ function App() {
 
   return loggedIn ? (
     <Dashboard
-      role={role}
       theme={theme}
       onThemeChange={setTheme}
       onLogout={() => setLoggedIn(false)}
     />
   ) : (
-    <Login
-      onLogin={(selectedRole) => {
-        setRole(selectedRole);
-        setLoggedIn(true);
-      }}
-    />
+    <Login onLogin={() => setLoggedIn(true)} />
   );
 }
 
