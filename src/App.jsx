@@ -7,6 +7,7 @@ const API_BASE_URL =
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("user");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +21,7 @@ function Login({ onLogin }) {
     }
 
     setError("");
-    onLogin();
+    onLogin(role);
   };
 
   return (
@@ -123,6 +124,21 @@ function Login({ onLogin }) {
                     {showPassword ? "Hide" : "Show"}
                   </button>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Account type
+                </label>
+
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="user">User - view and copy</option>
+                  <option value="admin">Admin - full access</option>
+                </select>
               </div>
 
               <label className="flex items-center gap-3 text-sm text-slate-600">
@@ -327,7 +343,26 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
   );
 }
 
-function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
+function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting, isAdmin }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyCustomer = async () => {
+    const customerText = [
+      `Name: ${customer.name || "-"}`,
+      `Phone: ${customer.phone || "-"}`,
+      `Email: ${customer.email || "-"}`,
+      `Company: ${customer.company || "-"}`,
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(customerText);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      window.prompt("Copy customer details:", customerText);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
@@ -365,12 +400,21 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 p-5">
           <button
-            onClick={onDelete}
-            disabled={deleting}
-            className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+            onClick={copyCustomer}
+            className="rounded-xl border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-600 hover:bg-blue-50"
           >
-            {deleting ? "Deleting..." : "Delete"}
+            {copied ? "Copied" : "Copy Customer"}
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={onDelete}
+              disabled={deleting}
+              className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
+          )}
 
           <button
             onClick={onClose}
@@ -379,12 +423,14 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
             Close
           </button>
 
-          <button
-            onClick={onEdit}
-            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            Edit Customer
-          </button>
+          {isAdmin && (
+            <button
+              onClick={onEdit}
+              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Edit Customer
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -584,9 +630,11 @@ function CustomerImport() {
   );
 }
 
-function Dashboard({ onLogout }) {
+function Dashboard({ onLogout, role }) {
+  const isAdmin = role === "admin";
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
+  const [phoneSearch, setPhoneSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -628,25 +676,25 @@ function Dashboard({ onLogout }) {
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) => {
-      const matchesSearch = [
-        customer.name,
-        customer.email,
-        customer.company,
-        customer.phone,
-      ]
-        .filter(Boolean)
-        .join(" ")
+      const matchesSearch = String(customer.phone || "")
         .toLowerCase()
-        .includes(search.toLowerCase());
+        .includes(phoneSearch.toLowerCase());
 
       const matchesStatus =
         statusFilter === "All" || customer.status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
-  }, [customers, search, statusFilter]);
+  }, [customers, phoneSearch, statusFilter]);
+
+  const handlePhoneSearch = (event) => {
+    event.preventDefault();
+    setPhoneSearch(search.trim());
+  };
 
   const saveCustomer = async (form) => {
+    if (!isAdmin) return;
+
     setSaving(true);
     setApiError("");
 
@@ -688,6 +736,8 @@ function Dashboard({ onLogout }) {
   };
 
   const deleteCustomer = async (customer) => {
+    if (!isAdmin) return;
+
     const confirmed = window.confirm(
       `Delete ${customer.name}? This action cannot be undone.`
     );
@@ -715,6 +765,30 @@ function Dashboard({ onLogout }) {
     }
   };
 
+  const exportCustomers = () => {
+    if (!isAdmin || filteredCustomers.length === 0) return;
+
+    const columns = ["name", "phone"];
+    const csvRows = [
+      ["Customer Name", "Phone Number"],
+      ...filteredCustomers.map((customer) =>
+        columns.map((column) => {
+          const value = String(customer[column] || "");
+          return `"${value.replaceAll('"', '""')}"`;
+        })
+      ),
+    ];
+    const csv = csvRows.map((row) => row.join(",")).join("\n");
+    const downloadUrl = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    );
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = "pulsecrm-customers.csv";
+    link.click();
+    URL.revokeObjectURL(downloadUrl);
+  };
+
   const openAddCustomer = () => {
     setEditingCustomer(null);
     setShowForm(true);
@@ -725,7 +799,9 @@ function Dashboard({ onLogout }) {
     setShowForm(true);
   };
 
-  const navItems = ["Dashboard", "Customers", "Import Customers", "Follow-ups", "Reports", "Settings"];
+  const navItems = isAdmin
+    ? ["Dashboard", "Customers", "Import Customers", "Follow-ups", "Reports", "Settings"]
+    : ["Dashboard", "Customers", "Follow-ups", "Reports"];
 
   const selectView = (item) => {
     setActiveView(item);
@@ -842,12 +918,14 @@ function Dashboard({ onLogout }) {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                onClick={openAddCustomer}
-                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm"
-              >
-                + Add Customer
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={openAddCustomer}
+                  className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm"
+                >
+                  + Add Customer
+                </button>
+              )}
 
               <button
                 onClick={onLogout}
@@ -879,13 +957,22 @@ function Dashboard({ onLogout }) {
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handlePhoneSearch}>
                 <input
+                  type="tel"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search customers..."
+                  placeholder="Search by phone number..."
+                  aria-label="Search by phone number"
                   className="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 sm:w-72"
                 />
+
+                <button
+                  type="submit"
+                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Search
+                </button>
 
                 <select
                   value={statusFilter}
@@ -897,7 +984,18 @@ function Dashboard({ onLogout }) {
                   <option>Follow-up</option>
                   <option>Inactive</option>
                 </select>
-              </div>
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={exportCustomers}
+                    disabled={filteredCustomers.length === 0}
+                    className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Export CSV
+                  </button>
+                )}
+              </form>
             </div>
 
             {loading ? (
@@ -911,11 +1009,8 @@ function Dashboard({ onLogout }) {
                     <thead className="bg-slate-50">
                       <tr>
                         {[
-                          "Customer",
-                          "Company",
-                          "Phone",
-                          "Status",
-                          "Created",
+                          "Customer Name",
+                          "Phone Number",
                           "Action",
                         ].map((heading) => (
                           <th
@@ -933,35 +1028,10 @@ function Dashboard({ onLogout }) {
                         <tr key={customer.id} className="transition hover:bg-slate-50">
                           <td className="px-5 py-4">
                             <p className="font-semibold text-slate-900">{customer.name}</p>
-                            <p className="text-sm text-slate-500">{customer.email}</p>
-                          </td>
-
-                          <td className="px-5 py-4 text-sm text-slate-600">
-                            {customer.company || "-"}
                           </td>
 
                           <td className="px-5 py-4 text-sm text-slate-600">
                             {customer.phone || "-"}
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                                customer.status === "Active"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : customer.status === "Follow-up"
-                                    ? "bg-amber-50 text-amber-700"
-                                    : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {customer.status}
-                            </span>
-                          </td>
-
-                          <td className="px-5 py-4 text-sm text-slate-600">
-                            {customer.created_at
-                              ? new Date(customer.created_at).toLocaleDateString()
-                              : "-"}
                           </td>
 
                           <td className="px-5 py-4 whitespace-nowrap">
@@ -972,12 +1042,14 @@ function Dashboard({ onLogout }) {
                               View
                             </button>
 
-                            <button
-                              onClick={() => openEditCustomer(customer)}
-                              className="ml-4 text-sm font-semibold text-slate-600 hover:text-slate-900"
-                            >
-                              Edit
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => openEditCustomer(customer)}
+                                className="ml-4 text-sm font-semibold text-slate-600 hover:text-slate-900"
+                              >
+                                Edit
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -994,37 +1066,8 @@ function Dashboard({ onLogout }) {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold text-slate-900">{customer.name}</p>
-                          <p className="text-sm text-slate-500">{customer.email}</p>
+                          <p className="mt-1 text-sm text-slate-600">{customer.phone || "-"}</p>
                         </div>
-
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                            customer.status === "Active"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : customer.status === "Follow-up"
-                                ? "bg-amber-50 text-amber-700"
-                                : "bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          {customer.status}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 space-y-1 text-sm text-slate-600">
-                        <p>
-                          <span className="font-medium text-slate-700">Company:</span>{" "}
-                          {customer.company || "-"}
-                        </p>
-                        <p>
-                          <span className="font-medium text-slate-700">Phone:</span>{" "}
-                          {customer.phone || "-"}
-                        </p>
-                        <p>
-                          <span className="font-medium text-slate-700">Created:</span>{" "}
-                          {customer.created_at
-                            ? new Date(customer.created_at).toLocaleDateString()
-                            : "-"}
-                        </p>
                       </div>
 
                       <div className="mt-4 flex gap-2">
@@ -1034,12 +1077,14 @@ function Dashboard({ onLogout }) {
                         >
                           View
                         </button>
-                        <button
-                          onClick={() => openEditCustomer(customer)}
-                          className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700"
-                        >
-                          Edit
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => openEditCustomer(customer)}
+                            className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700"
+                          >
+                            Edit
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1076,10 +1121,12 @@ function Dashboard({ onLogout }) {
           {selectedCustomer && (
         <CustomerDetails
           customer={selectedCustomer}
+          isAdmin={isAdmin}
           deleting={deleting}
-          onDelete={() => deleteCustomer(selectedCustomer)}
+          onDelete={() => isAdmin && deleteCustomer(selectedCustomer)}
           onClose={() => setSelectedCustomer(null)}
           onEdit={() => {
+            if (!isAdmin) return;
             openEditCustomer(selectedCustomer);
             setSelectedCustomer(null);
           }}
@@ -1091,11 +1138,17 @@ function Dashboard({ onLogout }) {
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [role, setRole] = useState("user");
 
   return loggedIn ? (
-    <Dashboard onLogout={() => setLoggedIn(false)} />
+    <Dashboard role={role} onLogout={() => setLoggedIn(false)} />
   ) : (
-    <Login onLogin={() => setLoggedIn(true)} />
+    <Login
+      onLogin={(selectedRole) => {
+        setRole(selectedRole);
+        setLoggedIn(true);
+      }}
+    />
   );
 }
 
