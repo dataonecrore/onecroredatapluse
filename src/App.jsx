@@ -611,6 +611,7 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
 
       const data = await response.json();
       setCustomers(data);
+      setApiError("");
     } catch (error) {
       setApiError(
         error instanceof TypeError
@@ -733,27 +734,27 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 bg-slate-950 text-white lg:flex lg:flex-col">
+    <div className="dashboard-shell min-h-screen bg-slate-100">
+      <aside className="dashboard-sidebar fixed inset-y-0 left-0 hidden w-64 bg-slate-950 text-white lg:flex lg:flex-col">
         <div className="border-b border-white/10 px-6 py-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/10">
-              <div className="h-5 w-5 rounded-full border-2 border-white/80" />
+            <div className="dashboard-logo flex h-11 w-11 items-center justify-center rounded-xl">
+              <span>◉</span>
             </div>
 
             <div>
-              <p className="font-bold">OneCrore CRM</p>
-              <p className="text-xs text-slate-400">OneCrore Plus Data</p>
+              <p className="text-lg font-bold tracking-tight">OneCrore CRM</p>
+              <p className="text-xs text-slate-400">Manage Customers. Grow Business.</p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-2 px-4 py-6">
+        <nav className="dashboard-nav flex-1 space-y-2 px-4 py-6">
           {navItems.map((item) => (
             <button
               key={item}
               onClick={() => selectView(item)}
-              className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
+              className={`dashboard-nav-item w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
                 activeView === item ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
               }`}
             >
@@ -762,7 +763,18 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
           ))}
         </nav>
 
-        <div className="border-t border-white/10 p-4">
+        <div className="mt-auto border-t border-white/10 p-4">
+          <div className="dashboard-growth mb-5 rounded-2xl p-4">
+            <p className="text-sm font-bold">Grow Faster</p>
+            <p className="mt-1 text-xs text-blue-100">Turn leads into loyal customers</p>
+          </div>
+          <div className="flex items-center gap-3 px-2 pb-2">
+            <div className="dashboard-avatar">BT</div>
+            <div>
+              <p className="text-sm font-semibold">Biksham Tarala</p>
+              <p className="text-xs text-slate-400">Admin</p>
+            </div>
+          </div>
           <button
             onClick={onLogout}
             className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
@@ -820,8 +832,8 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
         </div>
       )}
 
-      <main className="lg:pl-64">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
+      <main className="dashboard-main lg:pl-64">
+        <header className="dashboard-header sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
             <div className="flex items-center gap-3">
               <button
@@ -833,8 +845,8 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
                 ?
               </button>
 
-              <div>
-                <h1 className="text-lg font-bold text-slate-950 sm:text-xl">{activeView}</h1>
+              <div className="dashboard-heading">
+                <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">{activeView}</h1>
                 <p className="text-xs text-slate-500 sm:text-sm">
                   Manage customer information and activity
                 </p>
@@ -868,21 +880,28 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
           </div>
         </header>
 
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="dashboard-content p-4 sm:p-6 lg:p-8">
           {activeView === "Import Customers" ? (
             <CustomerImport />
           ) : (
           <>
           {apiError && (
-            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {apiError}
+            <div className="dashboard-alert mb-5 flex flex-wrap items-center gap-4 rounded-2xl border px-5 py-4 text-sm">
+              <div className="dashboard-alert-icon">↗</div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">Backend API Connection Issue</p>
+                <p className="mt-1 break-words">{apiError}</p>
+              </div>
+              <button onClick={loadCustomers} className="dashboard-alert-button rounded-xl px-4 py-2 font-semibold">
+                Retry Connection
+              </button>
             </div>
           )}
 
-          <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="dashboard-customers mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-950">Customers</h2>
+                <h2 className="flex items-center gap-3 text-2xl font-bold text-slate-950"><span className="dashboard-section-icon">♧</span>Customers</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Search, view and edit customer records
                 </p>

@@ -35,6 +35,118 @@ button {
   cursor: pointer;
 }
 
+.dashboard-shell {
+  background: #f3f7ff !important;
+}
+
+.dashboard-sidebar {
+  width: 300px !important;
+  background: linear-gradient(180deg, #030a2d 0%, #06113d 100%) !important;
+  box-shadow: 12px 0 30px rgba(31, 64, 140, 0.08);
+}
+
+.dashboard-logo {
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  background: linear-gradient(145deg, #0ea5e9, #1d4ed8 60%, #4338ca);
+  color: #dbeafe;
+  font-size: 1.7rem;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
+}
+
+.dashboard-nav-item {
+  color: #dbeafe;
+  border: 1px solid transparent;
+}
+
+.dashboard-nav-item.bg-blue-600 {
+  background: linear-gradient(100deg, #2563eb, #1236d8) !important;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.32);
+}
+
+.dashboard-nav-item:hover:not(.bg-blue-600) {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(96, 165, 250, 0.18);
+}
+
+.dashboard-growth {
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.55), rgba(30, 64, 175, 0.3));
+}
+
+.dashboard-avatar {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #93c5fd, #2563eb);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.8);
+}
+
+.dashboard-main {
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  min-height: 104px;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: #dbe5f5 !important;
+}
+
+.dashboard-alert {
+  color: #12245e;
+  border-color: #c8dafb !important;
+  background: linear-gradient(100deg, #eaf2ff, #f7faff) !important;
+  box-shadow: 0 8px 22px rgba(59, 130, 246, 0.08);
+}
+
+.dashboard-alert-icon,
+.dashboard-section-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 14px;
+  color: #2563eb;
+  background: #dbeafe;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.dashboard-alert-button {
+  color: #fff;
+  background: linear-gradient(100deg, #2563eb, #1d4ed8);
+}
+
+.dashboard-customers {
+  border-color: #dce6f5 !important;
+  box-shadow: 0 14px 35px rgba(44, 75, 140, 0.08) !important;
+}
+
+.dashboard-customers thead {
+  background: #f1f6ff !important;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-main {
+    padding-left: 300px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-header {
+    min-height: 76px;
+  }
+
+  .dashboard-alert-button {
+    width: 100%;
+  }
+}
+
 .theme-dark {
   color-scheme: dark;
   background: #0f172a;
