@@ -515,7 +515,6 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting, isAdmi
             ["Name", customer.name],
             ["Email", customer.email],
             ["Phone", customer.phone || "-"],
-            ["Address", customer.address || "-"],
             ["Company", customer.company || "-"],
             ["Status", customer.status],
             [
@@ -1157,7 +1156,7 @@ function Dashboard({ onLogout, role = "user", theme, onThemeChange }) {
                         {[
                           "Customer Name",
                           "Phone Number",
-                          "Customer Address",
+                          "Action",
                         ].map((heading) => (
                           <th
                             key={heading}
@@ -1171,12 +1170,7 @@ function Dashboard({ onLogout, role = "user", theme, onThemeChange }) {
 
                     <tbody className="divide-y divide-slate-100">
                       {filteredCustomers.map((customer) => (
-                        <tr
-                          key={customer.id}
-                          onClick={() => setSelectedCustomer(customer)}
-                          className="cursor-pointer transition hover:bg-slate-50"
-                          title="View customer details"
-                        >
+                        <tr key={customer.id} className="transition hover:bg-slate-50">
                           <td className="px-5 py-4">
                             <p className="font-semibold text-slate-900">{customer.name}</p>
                           </td>
@@ -1185,8 +1179,22 @@ function Dashboard({ onLogout, role = "user", theme, onThemeChange }) {
                             {customer.phone || "-"}
                           </td>
 
-                          <td className="px-5 py-4 text-sm text-slate-600">
-                            {customer.address || "-"}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => setSelectedCustomer(customer)}
+                              className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                            >
+                              View
+                            </button>
+
+                            {isAdmin && (
+                              <button
+                                onClick={() => openEditCustomer(customer)}
+                                className="ml-4 text-sm font-semibold text-slate-600 hover:text-slate-900"
+                              >
+                                Edit
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1204,7 +1212,6 @@ function Dashboard({ onLogout, role = "user", theme, onThemeChange }) {
                         <div>
                           <p className="font-semibold text-slate-900">{customer.name}</p>
                           <p className="mt-1 text-sm text-slate-600">{customer.phone || "-"}</p>
-                          <p className="mt-1 text-sm text-slate-500">{customer.address || "-"}</p>
                         </div>
                       </div>
 
