@@ -1,4 +1,4 @@
-# Customer Management System
+# PulseCRM
 
 Frontend stack:
 - React
