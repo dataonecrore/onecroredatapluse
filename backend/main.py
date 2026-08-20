@@ -150,7 +150,12 @@ def login(payload: LoginRequest):
         timeout=10,
     )
     if response.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
+        try:
+            error_data = response.json()
+            detail = error_data.get("error_description") or error_data.get("msg") or error_data.get("message")
+        except ValueError:
+            detail = None
+        raise HTTPException(status_code=401, detail=detail or "Invalid email or password.")
 
     session = response.json()
     user_response = requests.get(

@@ -138,7 +138,7 @@ function Login({ onLogin }) {
               <button type="submit" className="login-submit w-full rounded-xl px-4 py-3.5 font-semibold text-white transition hover:opacity-90">{isSignup ? "Create account" : "Sign in"} <span className="ml-2">→</span></button>
             </form>
 
-            <p className="mt-8 text-center text-sm text-slate-500">{isSignup ? "Already have an account?" : "Don&apos;t have an account?"} <button type="button" onClick={() => { setIsSignup((value) => !value); setError(""); setMessage(""); }} className="font-semibold text-blue-600">{isSignup ? "Sign in" : "Create one"}</button></p>
+            <p className="mt-8 text-center text-sm text-slate-500">{isSignup ? "Already have an account?" : "Do not have an account?"} <button type="button" onClick={() => { setIsSignup((value) => !value); setError(""); setMessage(""); }} className="font-semibold text-blue-600">{isSignup ? "Sign in" : "Create one"}</button></p>
           </div>
         </section>
       </div>
