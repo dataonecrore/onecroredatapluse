@@ -722,7 +722,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
           onClick={() => setMobileMenuOpen(false)}
         >
           <aside
-            className="h-full w-72 bg-slate-950 text-white shadow-2xl"
+            className="dashboard-mobile-drawer h-full w-72 text-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="border-b border-white/10 px-5 py-5">
@@ -773,11 +773,11 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 text-lg text-slate-700 lg:hidden"
                 aria-label="Open navigation"
               >
-                ?
+                ≡
               </button>
 
-              <div className="dashboard-heading">
-                <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">{activeView}</h1>
+              <div className="dashboard-heading min-w-0">
+                <h1 className="truncate text-2xl font-bold text-slate-950 sm:text-3xl">{activeView}</h1>
                 <p className="text-xs text-slate-500 sm:text-sm">
                   Manage customer information and activity
                 </p>
@@ -809,7 +809,9 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
               {isAdmin && (
                 <button
                   onClick={openAddCustomer}
-                  className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm"
+                  className="dashboard-add-customer rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm"
+                  aria-label="Add customer"
+                  title="Add customer"
                 >
                   + Add Customer
                 </button>
