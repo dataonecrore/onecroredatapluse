@@ -694,11 +694,6 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
         </nav>
 
         <div className="mt-auto border-t border-white/10 p-4">
-          <div className="dashboard-growth mb-5 rounded-2xl p-4">
-            <div className="flex items-start justify-between gap-3"><p className="text-sm font-bold">Grow Faster</p><span className="dashboard-growth-arrow" aria-hidden="true">↗</span></div>
-            <p className="mt-1 text-xs text-blue-100">Turn leads into loyal customers</p>
-            <button type="button" className="dashboard-growth-button mt-4 w-full rounded-lg px-3 py-2 text-xs font-semibold">Explore Insights <span aria-hidden="true">→</span></button>
-          </div>
           <div className="dashboard-profile flex items-center gap-3 border-t border-white/10 px-2 py-4">
             <div className="dashboard-avatar">BT</div>
             <div className="min-w-0 flex-1">
