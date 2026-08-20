@@ -658,19 +658,31 @@ function CustomerImport() {
         )}
 
         {job && (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+          <div
+            className={`import-job-card rounded-2xl border p-5 ${
+              job.status === "failed"
+                ? "import-job-failed border-red-200 bg-red-50"
+                : "border-blue-100 bg-blue-50"
+            }`}
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-900">{job.filename}</p>
                 <p className="mt-1 text-sm text-slate-600">{job.message}</p>
               </div>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase text-blue-700">
+              <span
+                className={`import-job-status rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                  job.status === "failed"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-white text-blue-700"
+                }`}
+              >
                 {job.status}
               </span>
             </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-blue-100">
+            <div className={`mt-4 h-2 overflow-hidden rounded-full ${job.status === "failed" ? "bg-red-100" : "bg-blue-100"}`}>
               <div
-                className="h-full rounded-full bg-blue-600 transition-all"
+                className={`h-full rounded-full transition-all ${job.status === "failed" ? "bg-red-600" : "bg-blue-600"}`}
                 style={{ width: `${job.progress || 0}%` }}
               />
             </div>
