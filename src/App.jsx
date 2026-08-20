@@ -572,6 +572,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
         customer.email,
         customer.company,
         customer.phone,
+        customer.id,
+        customer.address,
       ]
         .filter(Boolean)
         .join(" ")
