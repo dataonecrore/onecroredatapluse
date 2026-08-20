@@ -30,7 +30,9 @@ REST_URL = f"{SUPABASE_URL}/rest/v1"
 AUTH_URL = f"{SUPABASE_URL}/auth/v1"
 ADMIN_EMAILS = {
     email.strip().lower()
-    for email in os.getenv("ADMIN_EMAILS", "").split(",")
+    for email in (
+        os.getenv("ADMIN_EMAILS", "") + "," + os.getenv("ADMIN_EMAIL", "")
+    ).split(",")
     if email.strip()
 }
 IMPORT_DIR = Path(__file__).parent / "imports"
