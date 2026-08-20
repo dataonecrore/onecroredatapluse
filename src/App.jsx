@@ -104,8 +104,7 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
       name: "",
       email: "",
       phone: "",
-      company: "",
-      status: "Active",
+      address: "",
       notes: "",
     }
   );
@@ -134,8 +133,7 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
         name: form.name,
         email: form.email,
         phone: form.phone || "",
-        company: form.company || "",
-        status: form.status || "Active",
+        address: form.address || "",
         notes: form.notes || "",
       });
     } catch (err) {
@@ -199,31 +197,15 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
 
           <div>
             <label className="text-sm font-semibold text-slate-700">
-              Company
+              Address
             </label>
 
             <input
-              value={form.company || ""}
-              onChange={(e) => updateField("company", e.target.value)}
-              placeholder="Company name"
+              value={form.address || ""}
+              onChange={(e) => updateField("address", e.target.value)}
+              placeholder="Customer address"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-slate-700">
-              Status
-            </label>
-
-            <select
-              value={form.status || "Active"}
-              onChange={(e) => updateField("status", e.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none"
-            >
-              <option>Active</option>
-              <option>Follow-up</option>
-              <option>Inactive</option>
-            </select>
           </div>
 
           <div>
@@ -281,12 +263,10 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
 
         <div className="space-y-4 p-6">
           {[
-            ["Customer ID", customer.id],
             ["Name", customer.name],
             ["Email", customer.email],
             ["Phone", customer.phone || "-"],
-            ["Company", customer.company || "-"],
-            ["Status", customer.status],
+            ["Address", customer.address || "-"],
             [
               "Created",
               customer.created_at
@@ -530,7 +510,6 @@ function CustomerImport() {
 function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -576,7 +555,6 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
       const matchesSearch = [
         customer.name,
         customer.email,
-        customer.company,
         customer.phone,
         customer.id,
         customer.address,
@@ -586,12 +564,9 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
         .toLowerCase()
         .includes(search.toLowerCase());
 
-      const matchesStatus =
-        statusFilter === "All" || customer.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
-  }, [customers, search, statusFilter]);
+  }, [customers, search]);
 
   const saveCustomer = async (form) => {
     setSaving(true);
@@ -874,16 +849,6 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
                   className="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 sm:w-72"
                 />
 
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 outline-none"
-                >
-                  <option>All</option>
-                  <option>Active</option>
-                  <option>Follow-up</option>
-                  <option>Inactive</option>
-                </select>
               </div>
             </div>
 
@@ -958,17 +923,6 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
                           <p className="text-sm text-slate-500">{customer.email}</p>
                         </div>
 
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                            customer.status === "Active"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : customer.status === "Follow-up"
-                                ? "bg-amber-50 text-amber-700"
-                                : "bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          {customer.status}
-                        </span>
                       </div>
 
                       <div className="mt-3 space-y-1 text-sm text-slate-600">
@@ -1004,7 +958,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
                   <div className="px-6 py-14 text-center">
                     <p className="font-semibold text-slate-700">No customers found</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      Try changing your search or status filter.
+                      Try changing your search.
                     </p>
                   </div>
                 )}

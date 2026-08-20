@@ -62,6 +62,7 @@ class CustomerCreate(BaseModel):
     name: str
     email: EmailStr
     phone: Optional[str] = None
+    address: Optional[str] = None
     company: Optional[str] = None
     status: str = "Active"
     notes: Optional[str] = None
@@ -71,6 +72,7 @@ class CustomerUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    address: Optional[str] = None
     company: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
@@ -158,7 +160,7 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
             raise ValueError("The file must include name and email columns.")
 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
-        allowed_fields = {"name", "email", "phone", "company", "status", "notes"}
+        allowed_fields = {"name", "email", "phone", "address", "company", "status", "notes"}
 
         for row in rows:
             processed += 1
