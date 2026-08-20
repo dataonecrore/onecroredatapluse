@@ -26,6 +26,7 @@ function apiFetch(url, options = {}) {
 
 function Login({ onLogin }) {
   const [isSignup, setIsSignup] = useState(false);
+  const [isRecovery, setIsRecovery] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +34,6 @@ function Login({ onLogin }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [resettingPassword, setResettingPassword] = useState(false);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -71,32 +71,18 @@ function Login({ onLogin }) {
     }
   };
 
-  const handlePasswordReset = async () => {
-    if (!email.trim()) {
-      setError("Enter your email address first.");
-      setMessage("");
-      return;
-    }
-
-    setError("");
-    setMessage("");
-    setResettingPassword(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/password-reset`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "Unable to start password recovery.");
-      setMessage(data.message);
-    } catch (resetError) {
-      setError(resetError.message);
-    } finally {
-      setResettingPassword(false);
-    }
-  };
+  if (isRecovery) {
+    return (
+      <PasswordRecoveryRequest
+        email={email}
+        onBack={() => {
+          setIsRecovery(false);
+          setError("");
+          setMessage("");
+        }}
+      />
+    );
+  }
 
   return (
     <div className="login-page flex min-h-screen items-center justify-center px-3 py-4 sm:px-6 lg:px-8">
@@ -157,7 +143,7 @@ function Login({ onLogin }) {
                 <div className="login-input-wrap mt-2"><span aria-hidden="true">✉</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /></div>
               </div>
               <div>
-                <div className="flex items-center justify-between gap-3"><label className="block text-sm font-semibold text-slate-700">Password</label>{!isSignup && <button type="button" onClick={handlePasswordReset} disabled={resettingPassword} className="text-sm font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-50">{resettingPassword ? "Sending..." : "Forgot password?"}</button>}</div>
+                <div className="flex items-center justify-between gap-3"><label className="block text-sm font-semibold text-slate-700">Password</label>{!isSignup && <button type="button" onClick={() => setIsRecovery(true)} className="text-sm font-semibold text-blue-600 hover:text-blue-700">Forgot password?</button>}</div>
                 <div className="login-input-wrap mt-2"><span aria-hidden="true">♙</span><input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /><button type="button" onClick={() => setShowPassword((value) => !value)} className="px-2 text-slate-500 hover:text-slate-800">{showPassword ? "Hide" : "◉"}</button></div>
               </div>
               {!isSignup && <label className="flex items-center gap-3 text-sm text-slate-600"><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 accent-blue-600" />Remember me</label>}
@@ -169,6 +155,56 @@ function Login({ onLogin }) {
             <p className="mt-8 text-center text-sm text-slate-500">{isSignup ? "Already have an account?" : "Do not have an account?"} <button type="button" onClick={() => { setIsSignup((value) => !value); setError(""); setMessage(""); }} className="font-semibold text-blue-600">{isSignup ? "Sign in" : "Create one"}</button></p>
           </div>
         </section>
+      </div>
+    </div>
+  );
+}
+
+function PasswordRecoveryRequest({ email: initialEmail, onBack }) {
+  const [email, setEmail] = useState(initialEmail || "");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const requestReset = async (event) => {
+    event.preventDefault();
+    if (!email.trim()) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setSending(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to start password recovery.");
+      setMessage(data.message);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="login-page flex min-h-screen items-center justify-center px-3 py-4 sm:px-6 lg:px-8">
+      <div className="login-form-panel w-full max-w-xl rounded-[28px] px-6 py-10 shadow-2xl sm:px-12">
+        <p className="text-sm font-bold uppercase tracking-[0.24em] text-blue-600">Account recovery</p>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950">Recover your account</h1>
+        <p className="mt-4 text-base text-slate-500">Enter your email and we will send you a secure password reset link.</p>
+        <form className="mt-8 space-y-5" onSubmit={requestReset}>
+          <div className="login-input-wrap"><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /></div>
+          {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+          {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>}
+          <button type="submit" disabled={sending} className="login-submit w-full rounded-xl px-4 py-3.5 font-semibold text-white disabled:opacity-60">{sending ? "Sending..." : "Send recovery link"}</button>
+          <button type="button" onClick={onBack} className="w-full font-semibold text-blue-600">Return to sign in</button>
+        </form>
       </div>
     </div>
   );
