@@ -176,20 +176,27 @@ def signup(payload: SignupRequest):
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
 
     response = requests.post(
-        f"{AUTH_URL}/signup",
-        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+        f"{AUTH_URL}/admin/users",
+        headers=HEADERS,
         json={
             "email": payload.email,
             "password": payload.password,
-            "data": {"name": payload.name, "role": "user"},
+            "email_confirm": True,
+            "user_metadata": {"name": payload.name},
+            "app_metadata": {"role": "user"},
         },
         timeout=10,
     )
     if response.status_code not in (200, 201):
-        detail = response.json().get("msg") or response.json().get("message") or "Unable to create account."
+        try:
+            error_data = response.json()
+            detail = error_data.get("msg") or error_data.get("message") or error_data.get("error_description")
+        except ValueError:
+            detail = None
+        detail = detail or "Unable to create account."
         raise HTTPException(status_code=response.status_code, detail=detail)
 
-    return {"message": "Account created. Check your email to confirm your account before signing in."}
+    return {"message": "Account created. You can sign in now."}
 
 
 @app.get("/auth/users")
