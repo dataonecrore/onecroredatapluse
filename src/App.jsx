@@ -737,7 +737,7 @@ function AdminUsers() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Unable to send invitation.");
       setEmail("");
-      setMessage(`Invitation sent to ${data.email}.`);
+      setMessage(data.message || `Invitation sent to ${data.email}.`);
       await loadUsers();
     } catch (inviteError) {
       setError(inviteError.message);
