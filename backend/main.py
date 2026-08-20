@@ -299,10 +299,65 @@ def list_users(_: dict = Depends(require_admin)):
     ]
 
 
-@app.post("/auth/users/invite", status_code=201)
+def find_auth_user_by_email(email: str):
+    normalized_email = email.strip().casefold()
+    per_page = 1000
+
+    for page in range(1, 101):
+        response = requests.get(
+            f"{AUTH_URL}/admin/users",
+            headers=HEADERS,
+            params={"page": page, "per_page": per_page},
+            timeout=10,
+        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail="Unable to check whether the user already exists.",
+            )
+
+        users = response.json().get("users", [])
+        for user in users:
+            if (user.get("email") or "").strip().casefold() == normalized_email:
+                return user
+        if len(users) < per_page:
+            return None
+
+    raise HTTPException(status_code=502, detail="Unable to complete the user lookup.")
+
+
+def set_auth_user_role(user: dict, role: str):
+    user_id = user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=502, detail="Supabase returned a user without an ID.")
+
+    app_metadata = {**(user.get("app_metadata") or {}), "role": role}
+    response = requests.put(
+        f"{AUTH_URL}/admin/users/{user_id}",
+        headers=HEADERS,
+        json={"app_metadata": app_metadata},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=502, detail="Unable to update the user's role.")
+    return user_id
+
+
+@app.post("/auth/users/invite")
 def invite_user(payload: InviteRequest, _: dict = Depends(require_admin)):
     if payload.role not in {"admin", "user"}:
         raise HTTPException(status_code=400, detail="Role must be admin or user.")
+
+    existing_user = find_auth_user_by_email(str(payload.email))
+    if existing_user:
+        user_id = set_auth_user_role(existing_user, payload.role)
+        return {
+            "id": user_id,
+            "email": payload.email,
+            "role": payload.role,
+            "status": "existing",
+            "message": "User already registered. Their role was updated; no new invitation was sent.",
+        }
 
     response = requests.post(
         f"{AUTH_URL}/admin/invite",
@@ -311,21 +366,30 @@ def invite_user(payload: InviteRequest, _: dict = Depends(require_admin)):
         timeout=10,
     )
     if response.status_code not in (200, 201):
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+        # A registration may race the initial lookup. Re-check before returning
+        # an invitation error so existing accounts remain idempotent.
+        existing_user = find_auth_user_by_email(str(payload.email))
+        if existing_user:
+            user_id = set_auth_user_role(existing_user, payload.role)
+            return {
+                "id": user_id,
+                "email": payload.email,
+                "role": payload.role,
+                "status": "existing",
+                "message": "User already registered. Their role was updated; no new invitation was sent.",
+            }
+        raise HTTPException(status_code=400, detail="Unable to send the invitation.")
 
     invited_user = response.json().get("user") or response.json()
-    user_id = invited_user.get("id")
-    if user_id:
-        role_response = requests.put(
-            f"{AUTH_URL}/admin/users/{user_id}",
-            headers=HEADERS,
-            json={"app_metadata": {"role": payload.role}},
-            timeout=10,
-        )
-        if role_response.status_code != 200:
-            raise HTTPException(status_code=role_response.status_code, detail=role_response.text)
+    user_id = set_auth_user_role(invited_user, payload.role)
 
-    return {"email": payload.email, "role": payload.role, "message": "Invitation sent."}
+    return {
+        "id": user_id,
+        "email": payload.email,
+        "role": payload.role,
+        "status": "invited",
+        "message": "Invitation sent.",
+    }
 
 
 @app.patch("/auth/users/{user_id}/role")
