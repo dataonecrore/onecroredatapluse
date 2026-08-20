@@ -73,8 +73,8 @@ function Login({ onLogin }) {
 
   if (isRecovery) {
     return (
-      <PasswordRecoveryRequest
-        email={email}
+      <PasswordRecovery
+        accessToken=""
         onBack={() => {
           setIsRecovery(false);
           setError("");
@@ -221,6 +221,11 @@ function PasswordRecovery({ accessToken, onComplete }) {
     event.preventDefault();
     setError("");
     setMessage("");
+
+    if (!accessToken) {
+      setError("Open the password recovery link from your email before updating your password.");
+      return;
+    }
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
