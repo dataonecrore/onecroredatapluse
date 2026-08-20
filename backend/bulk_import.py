@@ -21,6 +21,7 @@ from typing import Iterator, TextIO
 
 VALID_DUPLICATE_MODES = ("preserve", "skip-phone")
 PHONE_DIGITS = re.compile(r"\D+")
+WHITESPACE = re.compile(r"\s+")
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,10 @@ def normalized_phone(value: str) -> str:
     return PHONE_DIGITS.sub("", value or "")
 
 
+def clean_text(value: str | None) -> str:
+    return WHITESPACE.sub(" ", value or "").strip()
+
+
 def validate_headers(fieldnames: list[str] | None, columns: dict[str, str | None]) -> None:
     if not fieldnames:
         raise ValueError("CSV file has no header row")
@@ -62,8 +67,8 @@ def validate_headers(fieldnames: list[str] | None, columns: dict[str, str | None
 def parse_customer_row(
     row: dict[str, str | None], source_row: int, columns: dict[str, str | None]
 ) -> CustomerRow | RejectedRow:
-    name = (row.get(columns["name"] or "") or "").strip()
-    phone = (row.get(columns["phone"] or "") or "").strip()
+    name = clean_text(row.get(columns["name"] or ""))
+    phone = clean_text(row.get(columns["phone"] or ""))
     digits = normalized_phone(phone)
     if not name:
         return RejectedRow(source_row, "missing_name", "Customer name is required")
@@ -73,10 +78,17 @@ def parse_customer_row(
             "invalid_phone",
             "Phone must contain at least 3 digits",
         )
-    address_column = columns.get("address")
+    address_columns = (
+        columns.get("address"),
+        columns.get("city"),
+        columns.get("state"),
+        columns.get("pin_code"),
+    )
     source_id_column = columns.get("source_id")
-    address = ((row.get(address_column) or "").strip() if address_column else "") or None
-    source_id = ((row.get(source_id_column) or "").strip() if source_id_column else "") or None
+    address_parts = [clean_text(row.get(column)) for column in address_columns if column]
+    address = ", ".join(part for part in address_parts if part) or None
+    source_id = clean_text(row.get(source_id_column)) if source_id_column else None
+    source_id = source_id or None
     return CustomerRow(source_row, name, phone, address, source_id)
 
 
@@ -249,6 +261,9 @@ def import_csv(args: argparse.Namespace) -> uuid.UUID:
         "name": args.name_column,
         "phone": args.phone_column,
         "address": args.address_column,
+        "city": args.city_column,
+        "state": args.state_column,
+        "pin_code": args.pin_code_column,
         "source_id": args.source_id_column,
     }
 
@@ -358,9 +373,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Direct/session-mode Postgres URL (or SUPABASE_DB_URL)",
     )
     parser.add_argument("--duplicate-mode", required=True, choices=VALID_DUPLICATE_MODES)
-    parser.add_argument("--name-column", default="customer_name")
-    parser.add_argument("--phone-column", default="phone")
-    parser.add_argument("--address-column", default="address")
+    parser.add_argument("--name-column", default="Customer Name")
+    parser.add_argument("--phone-column", default="Customer Phone")
+    parser.add_argument("--address-column", default="Customer Address")
+    parser.add_argument("--city-column", default="City")
+    parser.add_argument("--state-column", default="State")
+    parser.add_argument("--pin-code-column", default="PIN Code")
     parser.add_argument("--source-id-column")
     parser.add_argument("--job-id", help="Existing job UUID to resume")
     parser.add_argument("--batch-size", type=int, default=50_000)

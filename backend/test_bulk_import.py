@@ -19,6 +19,19 @@ COLUMNS = {
     "name": "customer_name",
     "phone": "phone",
     "address": "address",
+    "city": None,
+    "state": None,
+    "pin_code": None,
+    "source_id": None,
+}
+
+CONFIRMED_COLUMNS = {
+    "name": "Customer Name",
+    "phone": "Customer Phone",
+    "address": "Customer Address",
+    "city": "City",
+    "state": "State",
+    "pin_code": "PIN Code",
     "source_id": None,
 }
 
@@ -52,6 +65,30 @@ class BulkImportTests(unittest.TestCase):
         )
         self.assertEqual(result, CustomerRow(7, "Asha", "123-456", "Pune", None))
 
+    def test_confirmed_columns_combine_and_clean_full_address(self):
+        result = parse_customer_row(
+            {
+                "Customer Name": " Priya   Reddy ",
+                "Customer Phone": " 9000000002 ",
+                "Customer Address": "45, Green Park Colony,   Kondapur",
+                "City": " Hyderabad ",
+                "State": " Telangana ",
+                "PIN Code": " 500084 ",
+            },
+            2,
+            CONFIRMED_COLUMNS,
+        )
+        self.assertEqual(
+            result,
+            CustomerRow(
+                2,
+                "Priya Reddy",
+                "9000000002",
+                "45, Green Park Colony, Kondapur, Hyderabad, Telangana, 500084",
+                None,
+            ),
+        )
+
     def test_invalid_rows_do_not_retain_pii_in_rejection(self):
         result = parse_customer_row(
             {"customer_name": "", "phone": "999999", "address": "Secret address"},
@@ -75,6 +112,21 @@ class BulkImportTests(unittest.TestCase):
         self.assertEqual([row.source_row for row in accepted], [2, 3])
         self.assertEqual(rejected, [])
         self.assertEqual(end, 3)
+
+    def test_confirmed_csv_parses_quoted_address_commas(self):
+        source = io.StringIO(
+            "Customer Name,Customer Phone,Customer Address,City,State,PIN Code\n"
+            'Aarav Sharma,9000000001,"12, Lake View Road, Banjara Hills",'
+            "Hyderabad,Telangana,500034\n"
+        )
+        batches = list(iter_batches(source, CONFIRMED_COLUMNS, batch_size=10))
+        accepted, rejected, end = batches[0]
+        self.assertEqual(rejected, [])
+        self.assertEqual(end, 1)
+        self.assertEqual(
+            accepted[0].address,
+            "12, Lake View Road, Banjara Hills, Hyderabad, Telangana, 500034",
+        )
 
     def test_header_validation_reports_configured_column(self):
         with self.assertRaisesRegex(ValueError, "phone"):

@@ -9,7 +9,9 @@ committed source row. It does not upload the source file through the browser.
 1. Keep the original source file unchanged while a job is running or resuming.
 2. Export Excel data to UTF-8 CSV. The production importer intentionally rejects
    `.xlsx` and `.xls` files.
-3. Confirm the exact header names for customer name, phone, and address.
+3. The confirmed source headers are `Customer Name`, `Customer Phone`,
+   `Customer Address`, `City`, `State`, and `PIN Code`. Fields containing commas,
+   especially `Customer Address`, must be CSV-quoted.
 4. Choose the duplicate rule explicitly:
    - `preserve`: store every valid source row, including repeated phone numbers.
    - `skip-phone`: retain the earliest encountered row for each normalized phone
@@ -27,10 +29,18 @@ $env:SUPABASE_DB_URL = "postgresql://..."
 python -m backend.bulk_import `
   --file "D:\imports\customers.csv" `
   --duplicate-mode preserve `
-  --name-column "customer_name" `
-  --phone-column "phone" `
-  --address-column "address"
+  --name-column "Customer Name" `
+  --phone-column "Customer Phone" `
+  --address-column "Customer Address" `
+  --city-column "City" `
+  --state-column "State" `
+  --pin-code-column "PIN Code"
 ```
+
+These are the command defaults, so the column flags may be omitted for the
+confirmed file format. The importer collapses repeated whitespace in names and
+address components, then stores one display address in this order: customer
+address, city, state, PIN code.
 
 The default batch size is 50,000 source rows. Start with a 10,000-row copy of
 the real file and measure database load and search latency before the full run.
