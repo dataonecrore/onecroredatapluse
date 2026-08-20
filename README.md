@@ -23,6 +23,10 @@ ADMIN_EMAILS=admin@your-company.com
 FRONTEND_URL=https://onecroredatapluse.vercel.app
 ```
 
+Loopback password-recovery redirects are rejected by default. Local development
+may opt in explicitly with `ALLOW_LOCAL_RECOVERY_REDIRECT=true`; never set that
+variable in Railway or another hosted environment.
+
 The app requires Supabase login by default. Temporary read-only demo mode uses local sample data and must be enabled explicitly:
 
 ```env
@@ -47,7 +51,7 @@ Customer reads require an authenticated Supabase session. Customer writes, impor
 
 For password recovery, add `FRONTEND_URL` to Supabase Authentication URL Configuration as an allowed redirect URL and set the same value in the backend deployment.
 
-For production, use `FRONTEND_URL=https://onecroredatapluse.vercel.app`. In Supabase **Authentication → URL Configuration**, set the Site URL to the same address and add that exact address to Redirect URLs. Railway deployments automatically reject a loopback recovery redirect and fall back to the production Vercel URL, but the Railway variable should still be corrected rather than left as `localhost`.
+For production, use `FRONTEND_URL=https://onecroredatapluse.vercel.app`. In Supabase **Authentication → URL Configuration**, set the Site URL to the same address and add that exact address to Redirect URLs. Every hosted deployment rejects a loopback recovery redirect and falls back to the production Vercel URL, but the Railway variable should still be corrected rather than left as `localhost`.
 
 ## Login activity reports
 

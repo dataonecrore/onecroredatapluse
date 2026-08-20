@@ -14,21 +14,21 @@ class FakeResponse:
 
 
 class PasswordRecoveryTests(unittest.TestCase):
-    def test_hosted_deployment_replaces_loopback_redirect(self):
+    def test_loopback_redirect_is_replaced_by_default(self):
         self.assertEqual(
-            main.resolve_frontend_url("http://localhost:3000", hosted=True),
+            main.resolve_frontend_url("http://localhost:3000"),
             main.DEFAULT_FRONTEND_URL,
         )
 
-    def test_local_development_can_keep_loopback_redirect(self):
+    def test_local_development_requires_explicit_loopback_opt_in(self):
         self.assertEqual(
-            main.resolve_frontend_url("http://localhost:5173/", hosted=False),
+            main.resolve_frontend_url("http://localhost:5173/", allow_loopback=True),
             "http://localhost:5173",
         )
 
     def test_invalid_frontend_url_fails_closed(self):
         with self.assertRaises(RuntimeError):
-            main.resolve_frontend_url("onecroredatapluse.vercel.app", hosted=True)
+            main.resolve_frontend_url("onecroredatapluse.vercel.app")
 
     @patch("backend.main.requests.post")
     def test_password_reset_sends_production_redirect(self, request_post):
