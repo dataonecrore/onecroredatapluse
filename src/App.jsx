@@ -552,6 +552,14 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) => {
+      const isPlaceholderCustomer =
+        customer.name?.trim().toLowerCase() === "string" &&
+        customer.email?.trim().toLowerCase() === "user@example.com" &&
+        customer.phone?.trim().toLowerCase() === "string" &&
+        customer.company?.trim().toLowerCase() === "string";
+
+      if (isPlaceholderCustomer) return false;
+
       const matchesSearch = [
         customer.name,
         customer.email,
