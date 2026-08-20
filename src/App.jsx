@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 const PUBLIC_API_BASE_URL = "https://onecroredatapluse-production.up.railway.app";
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -9,7 +9,7 @@ const API_BASE_URL =
   import.meta.env.PROD && isLoopbackApi
     ? PUBLIC_API_BASE_URL
     : configuredApiBaseUrl || PUBLIC_API_BASE_URL;
-const isDemoMode = import.meta.env.VITE_BYPASS_LOGIN !== "false";
+const isDemoMode = import.meta.env.VITE_BYPASS_LOGIN === "true";
 const DEMO_CUSTOMERS = [
   {
     id: "demo-001",
@@ -307,8 +307,8 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!form.name?.trim() || !form.email?.trim()) {
-      setError("Customer name and email are required.");
+    if (!form.name?.trim() || !form.phone?.trim()) {
+      setError("Customer name and phone number are required.");
       return;
     }
 
@@ -317,7 +317,7 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
     try {
       await onSave({
         name: form.name,
-        email: form.email,
+        email: form.email?.trim() || null,
         phone: form.phone || "",
         address: form.address || "",
         notes: form.notes || "",
@@ -356,7 +356,7 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
 
           <div>
             <label className="text-sm font-semibold text-slate-700">
-              Email
+              Email (optional)
             </label>
 
             <input
@@ -374,6 +374,7 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
             </label>
 
             <input
+              type="tel"
               value={form.phone || ""}
               onChange={(e) => updateField("phone", e.target.value)}
               placeholder="+91 98765 43210"
@@ -450,7 +451,7 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
         <div className="space-y-4 p-6">
           {[
             ["Name", customer.name],
-            ["Email", customer.email],
+            ["Email", customer.email || "-"],
             ["Phone", customer.phone || "-"],
             ["Address", customer.address || "-"],
             [
@@ -585,7 +586,7 @@ function CustomerImport() {
           Import Customers
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
-          Stage a CSV or Excel file for validation before it enters the customer database.
+          Use this screen only for small validation batches. The production 10-million-row load uses the server-side bulk-import runbook.
         </p>
       </div>
 
@@ -780,10 +781,13 @@ function AdminUsers() {
 function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
+  const [searchField, setSearchField] = useState("name");
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingCustomer, setEditingCustomer] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -791,66 +795,80 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
   const [activeView, setActiveView] = useState("Dashboard");
   const [appearanceOpen, setAppearanceOpen] = useState(false);
 
-  const loadCustomers = async () => {
+  const searchCustomers = async ({ cursor = null, append = false, signal } = {}) => {
+    const query = search.trim();
+    const minimumLength = searchField === "phone" ? 3 : 2;
+    if (query.length < minimumLength) {
+      setCustomers([]);
+      setNextCursor(null);
+      setHasSearched(false);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setApiError("");
 
     if (demoMode) {
-      setCustomers(DEMO_CUSTOMERS);
+      const normalizedPhone = query.replace(/\D/g, "");
+      const matches = DEMO_CUSTOMERS.filter((customer) =>
+        searchField === "phone"
+          ? String(customer.phone || "").replace(/\D/g, "").startsWith(normalizedPhone)
+          : String(customer.name || "").toLowerCase().includes(query.toLowerCase())
+      );
+      setCustomers(matches);
+      setNextCursor(null);
+      setHasSearched(true);
       setLoading(false);
       return;
     }
 
     try {
-      const response = await apiFetch(`${API_BASE_URL}/customers`);
+      const params = new URLSearchParams({ q: query, field: searchField, limit: "25" });
+      if (cursor) params.set("cursor", String(cursor));
+      const response = await apiFetch(`${API_BASE_URL}/customers/search?${params}`, { signal });
 
       if (!response.ok) {
-        throw new Error("Unable to load customers.");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Unable to search customers.");
       }
 
       const data = await response.json();
-      setCustomers(data);
+      setCustomers((current) => append ? [...current, ...data.items] : data.items);
+      setNextCursor(data.next_cursor);
+      setHasSearched(true);
       setApiError("");
     } catch (error) {
+      if (error.name === "AbortError") return;
       setApiError(
         error instanceof TypeError
           ? `Unable to connect to the backend at ${API_BASE_URL}. Check that the API is running and that VITE_API_BASE_URL points to its public URL.`
           : error.message || "Unable to connect to the backend."
       );
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadCustomers();
-  }, []);
+    const minimumLength = searchField === "phone" ? 3 : 2;
+    if (search.trim().length < minimumLength) {
+      setCustomers([]);
+      setNextCursor(null);
+      setHasSearched(false);
+      setLoading(false);
+      return undefined;
+    }
 
-  const filteredCustomers = useMemo(() => {
-    return customers.filter((customer) => {
-      const isPlaceholderCustomer =
-        customer.name?.trim().toLowerCase() === "string" &&
-        customer.email?.trim().toLowerCase() === "user@example.com" &&
-        customer.phone?.trim().toLowerCase() === "string" &&
-        customer.company?.trim().toLowerCase() === "string";
-
-      if (isPlaceholderCustomer) return false;
-
-      const matchesSearch = [
-        customer.name,
-        customer.email,
-        customer.phone,
-        customer.id,
-        customer.address,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(search.toLowerCase());
-
-      return matchesSearch;
-    });
-  }, [customers, search]);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void searchCustomers({ signal: controller.signal });
+    }, 400);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [search, searchField, demoMode]);
 
   const saveCustomer = async (form) => {
     setSaving(true);
@@ -885,7 +903,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
         throw new Error(message);
       }
 
-      await loadCustomers();
+      await searchCustomers();
       setShowForm(false);
       setEditingCustomer(null);
     } finally {
@@ -913,7 +931,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
       }
 
       setSelectedCustomer(null);
-      await loadCustomers();
+      await searchCustomers();
     } catch (error) {
       setApiError(error.message || "Unable to delete customer.");
     } finally {
@@ -1119,8 +1137,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                 <p className="font-bold">Backend API Connection Issue</p>
                 <p className="mt-1 break-words">{apiError}</p>
               </div>
-              <button onClick={loadCustomers} className="dashboard-alert-button rounded-xl px-4 py-2 font-semibold">
-                Retry Connection
+              <button onClick={() => void searchCustomers()} className="dashboard-alert-button rounded-xl px-4 py-2 font-semibold">
+                Retry Search
               </button>
             </div>
           )}
@@ -1135,10 +1153,24 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
+                <label className="sr-only" htmlFor="customer-search-field">Search field</label>
+                <select
+                  id="customer-search-field"
+                  value={searchField}
+                  onChange={(event) => setSearchField(event.target.value)}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="name">Customer name</option>
+                  <option value="phone">Phone number</option>
+                </select>
+                <label className="sr-only" htmlFor="customer-search-query">Search customers</label>
                 <input
+                  id="customer-search-query"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search customers..."
+                  inputMode={searchField === "phone" ? "tel" : "search"}
+                  autoComplete="off"
+                  placeholder={searchField === "phone" ? "Enter at least 3 digits" : "Enter at least 2 characters"}
                   className="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 sm:w-72"
                 />
 
@@ -1171,14 +1203,14 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                     </thead>
 
                     <tbody className="divide-y divide-slate-100">
-                      {filteredCustomers.map((customer) => (
+                      {customers.map((customer) => (
                         <tr key={customer.id} className="transition hover:bg-slate-50">
                           <td className="px-5 py-4">
                             <p className="font-semibold text-slate-900">{customer.name}</p>
                           </td>
 
                           <td className="px-5 py-4 text-sm text-slate-600">
-                            {customer.id || "-"}
+                            {customer.phone || "-"}
                           </td>
 
                           <td className="px-5 py-4 text-sm text-slate-600">
@@ -1191,7 +1223,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                 </div>
 
                 <div className="grid gap-3 p-4 md:hidden">
-                  {filteredCustomers.map((customer) => (
+                  {customers.map((customer) => (
                     <div
                       key={customer.id}
                       className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
@@ -1199,7 +1231,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold text-slate-900">{customer.name}</p>
-                          <p className="text-sm text-slate-500">{customer.email}</p>
+                          <p className="text-sm text-slate-500">{customer.phone || "Phone unavailable"}</p>
                         </div>
 
                       </div>
@@ -1207,7 +1239,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                       <div className="mt-3 space-y-1 text-sm text-slate-600">
                         <p>
                           <span className="font-medium text-slate-700">Customer Number:</span>{" "}
-                          {customer.id || "-"}
+                          {customer.phone || "-"}
                         </p>
                         <p>
                           <span className="font-medium text-slate-700">Customer Address:</span>{" "}
@@ -1219,12 +1251,29 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                   ))}
                 </div>
 
-                {filteredCustomers.length === 0 && (
+                {!loading && hasSearched && customers.length === 0 && (
                   <div className="px-6 py-14 text-center">
                     <p className="font-semibold text-slate-700">No customers found</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      Try changing your search.
+                      Try a different customer name or phone number.
                     </p>
+                  </div>
+                )}
+                {!loading && !hasSearched && (
+                  <div className="px-6 py-14 text-center">
+                    <p className="font-semibold text-slate-700">Search by customer name or phone number</p>
+                    <p className="mt-1 text-sm text-slate-500">Customer addresses are displayed in results but are not searchable.</p>
+                  </div>
+                )}
+                {!loading && nextCursor && (
+                  <div className="border-t border-slate-100 px-5 py-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => void searchCustomers({ cursor: nextCursor, append: true })}
+                      className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Load more results
+                    </button>
                   </div>
                 )}
               </>

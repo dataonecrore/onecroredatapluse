@@ -7,3 +7,4 @@ backend/venv
 backend/imports/
 .env.local
 dist/
+supabase/.temp/
