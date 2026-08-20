@@ -10,7 +10,8 @@ from backend import main
 
 
 class FakeResponse:
-    status_code = 200
+    def __init__(self, status_code=200):
+        self.status_code = status_code
 
 
 class PasswordRecoveryTests(unittest.TestCase):
@@ -46,6 +47,19 @@ class PasswordRecoveryTests(unittest.TestCase):
                 "email": "member@example.com",
                 "redirect_to": "https://onecroredatapluse.vercel.app",
             },
+        )
+
+    @patch("backend.main.requests.post")
+    def test_password_reset_explains_email_rate_limit(self, request_post):
+        request_post.return_value = FakeResponse(status_code=429)
+
+        with self.assertRaises(main.HTTPException) as raised:
+            main.password_reset(main.PasswordResetRequest(email="member@example.com"))
+
+        self.assertEqual(raised.exception.status_code, 429)
+        self.assertEqual(
+            raised.exception.detail,
+            "Too many recovery emails were requested. Please wait before trying again.",
         )
 
 
