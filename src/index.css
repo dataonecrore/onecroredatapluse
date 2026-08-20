@@ -423,6 +423,15 @@ button {
   background: #f1f6ff !important;
 }
 
+.dashboard-customers tbody,
+.dashboard-customers tbody tr {
+  background: #ffffff;
+}
+
+.dashboard-customers tbody tr:hover {
+  background: #f8fafc;
+}
+
 @media (min-width: 1024px) {
   .dashboard-main {
     padding-left: 276px !important;
@@ -576,6 +585,16 @@ button {
   background: #243247 !important;
 }
 
+.theme-dark .dashboard-customers tbody,
+.theme-dark .dashboard-customers tbody tr {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.theme-dark .dashboard-customers tbody tr:hover {
+  background: #243247 !important;
+}
+
 .theme-dark .bg-slate-950 {
   background: #020617 !important;
 }
@@ -711,6 +730,16 @@ button {
 
 .theme-night .bg-slate-50 {
   background: #152d57 !important;
+}
+
+.theme-night .dashboard-customers tbody,
+.theme-night .dashboard-customers tbody tr {
+  background: #10244a !important;
+  border-color: #2b4774 !important;
+}
+
+.theme-night .dashboard-customers tbody tr:hover {
+  background: #17345f !important;
 }
 
 .theme-night .text-slate-950,
