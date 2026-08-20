@@ -1,14 +1,15 @@
 import csv
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 from urllib.parse import quote
 
 import requests
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr
@@ -72,7 +73,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 class CustomerCreate(BaseModel):
     name: str
-    email: EmailStr
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     address: Optional[str] = None
     company: Optional[str] = None
@@ -117,6 +118,32 @@ class InviteRequest(BaseModel):
 
 class RoleUpdate(BaseModel):
     role: str
+
+
+CUSTOMER_SEARCH_COLUMNS = (
+    "id,customer_code,name,phone,address,email,company,status,created_at,updated_at"
+)
+
+
+def normalize_name_query(value: str) -> str:
+    normalized = re.sub(r"\s+", " ", value.strip().casefold())
+    normalized = normalized.replace("*", "").replace("%", "")
+    if len(normalized) < 2 or not any(character.isalnum() for character in normalized):
+        raise ValueError("Enter at least 2 letters or numbers for a name search.")
+    return normalized
+
+
+def normalize_phone_query(value: str) -> str:
+    normalized = re.sub(r"\D+", "", value)
+    if len(normalized) < 3:
+        raise ValueError("Enter at least 3 digits for a phone search.")
+    return normalized
+
+
+def resolve_search_field(value: str, requested_field: str) -> Literal["name", "phone"]:
+    if requested_field in {"name", "phone"}:
+        return requested_field
+    return "name" if any(character.isalpha() for character in value) else "phone"
 
 
 def auth_headers(token: str):
@@ -376,8 +403,8 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
 
     try:
         rows = read_import_rows(file_path, extension)
-        if not rows or not {"name", "email"}.issubset(rows[0]):
-            raise ValueError("The file must include name and email columns.")
+        if not rows or not {"name", "phone"}.issubset(rows[0]):
+            raise ValueError("The file must include name and phone columns.")
 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
         allowed_fields = {"name", "email", "phone", "address", "company", "status", "notes"}
@@ -385,7 +412,7 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
         for row in rows:
             processed += 1
             customer = {key: row[key] for key in allowed_fields if row.get(key)}
-            if not customer.get("name") or not customer.get("email"):
+            if not customer.get("name") or not customer.get("phone"):
                 invalid += 1
                 continue
 
@@ -518,10 +545,18 @@ def health():
 
 
 @app.get("/customers")
-def get_customers(_: dict = Depends(get_current_user)):
+def get_customers(
+    limit: int = Query(25, ge=1, le=50),
+    _: dict = Depends(get_current_user),
+):
     response = requests.get(
-        f"{REST_URL}/customers?select=*&order=created_at.desc",
+        f"{REST_URL}/customers",
         headers=HEADERS,
+        params={
+            "select": CUSTOMER_SEARCH_COLUMNS,
+            "order": "id.asc",
+            "limit": str(limit),
+        },
         timeout=10,
     )
 
@@ -534,8 +569,59 @@ def get_customers(_: dict = Depends(get_current_user)):
     return response.json()
 
 
+@app.get("/customers/search")
+def search_customers(
+    q: str = Query(..., max_length=100),
+    field: Literal["auto", "name", "phone"] = "auto",
+    limit: int = Query(25, ge=1, le=50),
+    cursor: Optional[int] = Query(None, ge=0),
+    _: dict = Depends(get_current_user),
+):
+    resolved_field = resolve_search_field(q, field)
+    try:
+        normalized_query = (
+            normalize_phone_query(q)
+            if resolved_field == "phone"
+            else normalize_name_query(q)
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+    params = {
+        "select": CUSTOMER_SEARCH_COLUMNS,
+        "order": "id.asc",
+        "limit": str(limit + 1),
+    }
+    if cursor is not None:
+        params["id"] = f"gt.{cursor}"
+    if resolved_field == "phone":
+        params["normalized_phone"] = f"like.{normalized_query}*"
+    else:
+        params["normalized_name"] = f"ilike.*{normalized_query}*"
+
+    response = requests.get(
+        f"{REST_URL}/customers",
+        headers=HEADERS,
+        params=params,
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    rows = response.json()
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    return {
+        "items": items,
+        "next_cursor": items[-1]["id"] if has_more and items else None,
+        "field": resolved_field,
+        "query": normalized_query,
+        "limit": limit,
+    }
+
+
 @app.get("/customers/{customer_id}")
-def get_customer(customer_id: str, _: dict = Depends(get_current_user)):
+def get_customer(customer_id: int, _: dict = Depends(get_current_user)):
     response = requests.get(
         f"{REST_URL}/customers?id=eq.{customer_id}&select=*",
         headers=HEADERS,
@@ -583,7 +669,7 @@ def create_customer(customer: CustomerCreate, _: dict = Depends(require_admin)):
 
 @app.put("/customers/{customer_id}")
 def update_customer(
-    customer_id: str,
+    customer_id: int,
     customer: CustomerUpdate,
     _: dict = Depends(require_admin),
 ):
@@ -622,7 +708,7 @@ def update_customer(
 
 
 @app.delete("/customers/{customer_id}")
-def delete_customer(customer_id: str, _: dict = Depends(require_admin)):
+def delete_customer(customer_id: int, _: dict = Depends(require_admin)):
     response = requests.delete(
         f"{REST_URL}/customers?id=eq.{customer_id}",
         headers=HEADERS,
