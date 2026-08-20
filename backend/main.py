@@ -67,6 +67,8 @@ HEADERS = {
     "Content-Type": "application/json",
     "Prefer": "return=representation",
 }
+if not SUPABASE_KEY.startswith(("sb_secret_", "sb_publishable_")):
+    HEADERS["Authorization"] = f"Bearer {SUPABASE_KEY}"
 
 
 app = FastAPI(
@@ -172,6 +174,14 @@ def auth_headers(token: str):
     }
 
 
+def resolve_user_role(user: dict) -> str:
+    email = (user.get("email") or "").strip().lower()
+    if email in ADMIN_EMAILS:
+        return "admin"
+    role = (user.get("app_metadata") or {}).get("role", "user")
+    return role if role in {"admin", "user"} else "user"
+
+
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
     if not credentials:
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -185,9 +195,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_
         raise HTTPException(status_code=401, detail="Invalid or expired session.")
 
     user = response.json()
-    metadata = user.get("app_metadata") or {}
-    email = (user.get("email") or "").lower()
-    user["role"] = metadata.get("role", "admin" if email in ADMIN_EMAILS else "user")
+    user["role"] = resolve_user_role(user)
     return user
 
 
@@ -220,9 +228,8 @@ def login(payload: LoginRequest):
         timeout=10,
     )
     user = user_response.json()
-    metadata = user.get("app_metadata") or {}
     email = (user.get("email") or "").lower()
-    role = metadata.get("role", "admin" if email in ADMIN_EMAILS else "user")
+    role = resolve_user_role(user)
     return {"access_token": session["access_token"], "user": {"email": email, "role": role}}
 
 
@@ -289,14 +296,32 @@ def list_users(_: dict = Depends(require_admin)):
     response = requests.get(
         f"{AUTH_URL}/admin/users",
         headers=HEADERS,
+        params={"page": 1, "per_page": 1000},
         timeout=10,
     )
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
     return [
-        {"id": user["id"], "email": user.get("email"), "role": (user.get("app_metadata") or {}).get("role", "user")}
+        {
+            "id": user["id"],
+            "name": (user.get("user_metadata") or {}).get("name", ""),
+            "email": user.get("email"),
+            "role": resolve_user_role(user),
+            "created_at": user.get("created_at"),
+            "last_sign_in_at": user.get("last_sign_in_at"),
+        }
         for user in response.json().get("users", [])
     ]
+
+
+@app.get("/auth/me")
+def get_auth_user(user: dict = Depends(get_current_user)):
+    return {
+        "id": user.get("id"),
+        "name": (user.get("user_metadata") or {}).get("name", ""),
+        "email": user.get("email"),
+        "role": user.get("role", "user"),
+    }
 
 
 def find_auth_user_by_email(email: str):
