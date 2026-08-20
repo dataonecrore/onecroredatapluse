@@ -94,6 +94,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+
 class InviteRequest(BaseModel):
     email: EmailStr
     role: str = "user"
@@ -157,6 +163,28 @@ def login(payload: LoginRequest):
     email = (user.get("email") or "").lower()
     role = metadata.get("role", "admin" if email in ADMIN_EMAILS else "user")
     return {"access_token": session["access_token"], "user": {"email": email, "role": role}}
+
+
+@app.post("/auth/signup", status_code=201)
+def signup(payload: SignupRequest):
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+
+    response = requests.post(
+        f"{AUTH_URL}/signup",
+        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+        json={
+            "email": payload.email,
+            "password": payload.password,
+            "data": {"name": payload.name, "role": "user"},
+        },
+        timeout=10,
+    )
+    if response.status_code not in (200, 201):
+        detail = response.json().get("msg") or response.json().get("message") or "Unable to create account."
+        raise HTTPException(status_code=response.status_code, detail=detail)
+
+    return {"message": "Account created. Check your email to confirm your account before signing in."}
 
 
 @app.get("/auth/users")

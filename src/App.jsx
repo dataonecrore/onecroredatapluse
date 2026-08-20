@@ -25,30 +25,44 @@ function apiFetch(url, options = {}) {
 }
 
 function Login({ onLogin }) {
+  const [isSignup, setIsSignup] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   const handleLogin = async (event) => {
     event.preventDefault();
 
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter both email and password.");
+    if ((!isSignup && !email.trim()) || !password.trim() || (isSignup && !name.trim())) {
+      setError(isSignup ? "Please enter your name, email, and password." : "Please enter both email and password.");
+      return;
+    }
+
+    if (isSignup && password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     setError("");
+    setMessage("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/auth/${isSignup ? "signup" : "login"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim(), password, ...(isSignup ? { name: name.trim() } : {}) }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Unable to sign in.");
+      if (isSignup) {
+        setMessage(data.message);
+        setPassword("");
+        return;
+      }
       setAuthToken(data.access_token);
       onLogin(data.user);
     } catch (loginError) {
@@ -99,11 +113,17 @@ function Login({ onLogin }) {
         <section className="login-form-panel flex min-h-[650px] items-center justify-center px-6 py-10 sm:px-12 lg:px-14 xl:px-20">
           <div className="w-full max-w-[520px]">
             <div className="mb-10 lg:hidden"><p className="text-lg font-bold text-slate-950">OneCrore CRM</p></div>
-            <p className="text-sm font-bold uppercase tracking-[0.24em] text-blue-600">Welcome back</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Sign in to your account</h2>
-            <p className="mt-4 text-base text-slate-500">Enter your credentials to access OneCrore CRM.</p>
+            <p className="text-sm font-bold uppercase tracking-[0.24em] text-blue-600">{isSignup ? "Get started" : "Welcome back"}</p>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">{isSignup ? "Create your account" : "Sign in to your account"}</h2>
+            <p className="mt-4 text-base text-slate-500">{isSignup ? "Create a user account to access OneCrore CRM." : "Enter your credentials to access OneCrore CRM."}</p>
 
             <form className="mt-10 space-y-6" onSubmit={handleLogin}>
+              {isSignup && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700">Full name</label>
+                  <div className="login-input-wrap mt-2"><span aria-hidden="true">♙</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /></div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-semibold text-slate-700">Email address</label>
                 <div className="login-input-wrap mt-2"><span aria-hidden="true">✉</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /></div>
@@ -112,12 +132,13 @@ function Login({ onLogin }) {
                 <div className="flex items-center justify-between gap-3"><label className="block text-sm font-semibold text-slate-700">Password</label><button type="button" className="text-sm font-semibold text-blue-600 hover:text-blue-700">Forgot password?</button></div>
                 <div className="login-input-wrap mt-2"><span aria-hidden="true">♙</span><input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /><button type="button" onClick={() => setShowPassword((value) => !value)} className="px-2 text-slate-500 hover:text-slate-800">{showPassword ? "Hide" : "◉"}</button></div>
               </div>
-              <label className="flex items-center gap-3 text-sm text-slate-600"><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 accent-blue-600" />Remember me</label>
+              {!isSignup && <label className="flex items-center gap-3 text-sm text-slate-600"><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 accent-blue-600" />Remember me</label>}
               {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-              <button type="submit" className="login-submit w-full rounded-xl px-4 py-3.5 font-semibold text-white transition hover:opacity-90">Sign in <span className="ml-2">→</span></button>
+              {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>}
+              <button type="submit" className="login-submit w-full rounded-xl px-4 py-3.5 font-semibold text-white transition hover:opacity-90">{isSignup ? "Create account" : "Sign in"} <span className="ml-2">→</span></button>
             </form>
 
-            <p className="mt-8 text-center text-sm text-slate-500">Don&apos;t have an account? <span className="font-semibold text-blue-600">Contact your administrator.</span></p>
+            <p className="mt-8 text-center text-sm text-slate-500">{isSignup ? "Already have an account?" : "Don&apos;t have an account?"} <button type="button" onClick={() => { setIsSignup((value) => !value); setError(""); setMessage(""); }} className="font-semibold text-blue-600">{isSignup ? "Sign in" : "Create one"}</button></p>
           </div>
         </section>
       </div>
