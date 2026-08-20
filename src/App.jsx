@@ -648,12 +648,12 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
   };
 
   const navItems = [
-    "Dashboard",
-    "Customers",
-    ...(isAdmin ? ["Import Customers"] : []),
-    "Follow-ups",
-    "Reports",
-    "Settings",
+    ["Dashboard", "▦"],
+    ["Customers", "♧"],
+    ...(isAdmin ? [["Import Customers", "☁"]] : []),
+    ["Follow-ups", "□"],
+    ["Reports", "▥"],
+    ["Settings", "⚙"],
   ];
 
   const selectView = (item) => {
@@ -678,30 +678,34 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
         </div>
 
         <nav className="dashboard-nav flex-1 space-y-2 px-4 py-6">
-          {navItems.map((item) => (
+          {navItems.map(([item, icon]) => (
             <button
               key={item}
               onClick={() => selectView(item)}
-              className={`dashboard-nav-item w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
+              className={`dashboard-nav-item flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
                 activeView === item ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
               }`}
             >
-              {item}
+              <span className="dashboard-nav-icon" aria-hidden="true">{icon}</span>
+              <span className="flex-1">{item}</span>
+              {activeView === item && <span className="dashboard-nav-arrow" aria-hidden="true">›</span>}
             </button>
           ))}
         </nav>
 
         <div className="mt-auto border-t border-white/10 p-4">
           <div className="dashboard-growth mb-5 rounded-2xl p-4">
-            <p className="text-sm font-bold">Grow Faster</p>
+            <div className="flex items-start justify-between gap-3"><p className="text-sm font-bold">Grow Faster</p><span className="dashboard-growth-arrow" aria-hidden="true">↗</span></div>
             <p className="mt-1 text-xs text-blue-100">Turn leads into loyal customers</p>
+            <button type="button" className="dashboard-growth-button mt-4 w-full rounded-lg px-3 py-2 text-xs font-semibold">Explore Insights <span aria-hidden="true">→</span></button>
           </div>
-          <div className="flex items-center gap-3 px-2 pb-2">
+          <div className="dashboard-profile flex items-center gap-3 border-t border-white/10 px-2 py-4">
             <div className="dashboard-avatar">BT</div>
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">Biksham Tarala</p>
               <p className="text-xs text-slate-400">Admin</p>
             </div>
+            <span className="text-sm" aria-hidden="true">⌄</span>
           </div>
           <button
             onClick={onLogout}
@@ -734,15 +738,15 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
             </div>
 
             <nav className="space-y-2 px-4 py-5">
-              {navItems.map((item) => (
+              {navItems.map(([item, icon]) => (
                 <button
                   key={item}
-                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
+                  className={`dashboard-nav-item flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
                     activeView === item ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
                   }`}
                   onClick={() => selectView(item)}
                 >
-                  {item}
+                  <span className="dashboard-nav-icon" aria-hidden="true">{icon}</span><span>{item}</span>
                 </button>
               ))}
             </nav>

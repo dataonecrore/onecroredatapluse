@@ -220,13 +220,55 @@ button {
 }
 
 .dashboard-shell {
-  background: #f3f7ff !important;
+  background: #f4f7fb !important;
 }
 
 .dashboard-sidebar {
-  width: 300px !important;
-  background: linear-gradient(180deg, #030a2d 0%, #06113d 100%) !important;
-  box-shadow: 12px 0 30px rgba(31, 64, 140, 0.08);
+  width: 276px !important;
+  color: #1e293b;
+  background: #ffffff !important;
+  border-right: 1px solid #e5eaf2;
+  box-shadow: 12px 0 30px rgba(31, 64, 140, 0.06);
+}
+
+.dashboard-sidebar > div:first-child {
+  border-color: #e8edf5 !important;
+}
+
+.dashboard-sidebar .text-slate-400 {
+  color: #7a879b !important;
+}
+
+.dashboard-nav-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.dashboard-nav-arrow {
+  font-size: 25px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.dashboard-profile {
+  border-color: #e8edf5 !important;
+}
+
+.dashboard-growth-arrow {
+  color: #38bdf8;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.dashboard-growth-button {
+  border: 1px solid #2563eb;
+  color: #2563eb;
+  background: transparent;
 }
 
 .dashboard-logo {
@@ -238,7 +280,7 @@ button {
 }
 
 .dashboard-nav-item {
-  color: #dbeafe;
+  color: #526176;
   border: 1px solid transparent;
 }
 
@@ -248,13 +290,19 @@ button {
 }
 
 .dashboard-nav-item:hover:not(.bg-blue-600) {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(96, 165, 250, 0.18);
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #dbeafe;
 }
 
 .dashboard-growth {
-  border: 1px solid rgba(96, 165, 250, 0.24);
-  background: linear-gradient(145deg, rgba(37, 99, 235, 0.55), rgba(30, 64, 175, 0.3));
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  background: linear-gradient(145deg, #eff6ff, #dbeafe);
+}
+
+.dashboard-growth .text-blue-100 {
+  color: #52709e !important;
 }
 
 .dashboard-avatar {
@@ -317,7 +365,7 @@ button {
 
 @media (min-width: 1024px) {
   .dashboard-main {
-    padding-left: 300px !important;
+    padding-left: 276px !important;
   }
 }
 
@@ -351,6 +399,47 @@ button {
 
 .theme-dark .bg-slate-950 {
   background: #020617 !important;
+}
+
+.theme-dark .dashboard-sidebar {
+  color: #f8fafc;
+  border-right-color: #263449;
+  background: linear-gradient(180deg, #111827 0%, #0b1220 100%) !important;
+  box-shadow: 12px 0 30px rgba(2, 6, 23, 0.22);
+}
+
+.theme-dark .dashboard-sidebar > div:first-child,
+.theme-dark .dashboard-profile {
+  border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+.theme-dark .dashboard-sidebar .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.theme-dark .dashboard-nav-item {
+  color: #cbd5e1;
+}
+
+.theme-dark .dashboard-nav-item:hover:not(.bg-blue-600) {
+  color: #f8fafc;
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+.theme-dark .dashboard-growth {
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #dbeafe;
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.48), rgba(30, 41, 59, 0.64));
+}
+
+.theme-dark .dashboard-growth .text-blue-100 {
+  color: #bfdbfe !important;
+}
+
+.theme-dark .dashboard-growth-button {
+  border-color: #60a5fa;
+  color: #dbeafe;
 }
 
 .theme-dark .text-slate-950,
@@ -478,4 +567,47 @@ button {
 
 .theme-night .appearance-option-active {
   background: #173a75;
+}
+
+.theme-night .dashboard-sidebar {
+  color: #f8fafc;
+  border-right-color: #18376d;
+  background:
+    radial-gradient(circle at 100% 100%, rgba(37, 99, 235, 0.26), transparent 34%),
+    linear-gradient(155deg, #061743 0%, #061a50 55%, #031238 100%) !important;
+  box-shadow: 12px 0 30px rgba(3, 18, 56, 0.25);
+}
+
+.theme-night .dashboard-sidebar > div:first-child,
+.theme-night .dashboard-profile {
+  border-color: rgba(147, 197, 253, 0.16) !important;
+}
+
+.theme-night .dashboard-sidebar .text-slate-400 {
+  color: #9fb6dc !important;
+}
+
+.theme-night .dashboard-nav-item {
+  color: #dbeafe;
+}
+
+.theme-night .dashboard-nav-item:hover:not(.bg-blue-600) {
+  color: #fff;
+  background: rgba(59, 130, 246, 0.13);
+  border-color: rgba(96, 165, 250, 0.18);
+}
+
+.theme-night .dashboard-growth {
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #eff6ff;
+  background: linear-gradient(145deg, rgba(18, 71, 182, 0.72), rgba(13, 48, 121, 0.58));
+}
+
+.theme-night .dashboard-growth .text-blue-100 {
+  color: #c7dcff !important;
+}
+
+.theme-night .dashboard-growth-button {
+  border-color: #4298f5;
+  color: #eff6ff;
 }
