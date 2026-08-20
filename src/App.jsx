@@ -980,9 +980,12 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
       ]
     : [
         ["Dashboard", "▦"],
+        ["Customers", "♧"],
         ["Follow-ups", "□"],
-        ["Settings", "⚙"],
+        ["Reports", "▥"],
       ];
+
+  const isCustomerSearchView = activeView === "Dashboard" || activeView === "Customers";
 
   const selectView = (item) => {
     setActiveView(item);
@@ -1148,7 +1151,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
             <CustomerImport />
           ) : activeView === "Settings" && isAdmin ? (
             <AdminUsers />
-          ) : (
+          ) : isCustomerSearchView ? (
           <>
           {apiError && (
             <div className="dashboard-alert mb-5 flex flex-wrap items-center gap-4 rounded-2xl border px-5 py-4 text-sm">
@@ -1307,6 +1310,20 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
             )}
           </div>
           </>
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-white px-6 py-14 text-center shadow-sm">
+              <h2 className="text-xl font-bold text-slate-950">{activeView}</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                This feature is not available yet. Use Customers to search customer records.
+              </p>
+              <button
+                type="button"
+                onClick={() => selectView("Customers")}
+                className="mt-5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Open Customers
+              </button>
+            </div>
           )}
         </div>
       </main>
