@@ -673,6 +673,26 @@ button {
   border-color: #334155 !important;
 }
 
+.theme-dark .import-job-card {
+  border-color: #1d4ed8 !important;
+  background: #172554 !important;
+}
+
+.theme-dark .import-job-card.import-job-failed {
+  border-color: #991b1b !important;
+  background: #3f1720 !important;
+}
+
+.theme-dark .import-job-status {
+  color: #dbeafe !important;
+  background: #1e3a8a !important;
+}
+
+.theme-dark .import-job-failed .import-job-status {
+  color: #fee2e2 !important;
+  background: #7f1d1d !important;
+}
+
 .theme-dark input,
 .theme-dark select,
 .theme-dark textarea {

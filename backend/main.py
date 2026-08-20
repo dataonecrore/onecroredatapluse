@@ -43,6 +43,25 @@ MAX_IMPORT_SIZE = 100 * 1024 * 1024
 ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
 import_jobs = {}
 
+IMPORT_HEADER_ALIASES = {
+    "name": "name",
+    "customer name": "name",
+    "phone": "phone",
+    "phone number": "phone",
+    "customer phone": "phone",
+    "address": "address",
+    "customer address": "address",
+    "email": "email",
+    "email address": "email",
+    "company": "company",
+    "status": "status",
+    "notes": "notes",
+    "city": "city",
+    "state": "state",
+    "pin code": "pin_code",
+    "pincode": "pin_code",
+}
+
 HEADERS = {
     "apikey": SUPABASE_KEY,
     "Content-Type": "application/json",
@@ -332,12 +351,40 @@ def update_import_job(job_id, **updates):
     }
 
 
+def normalize_import_header(value):
+    header = re.sub(r"\s+", " ", str(value or "").replace("_", " ")).strip().lower()
+    return IMPORT_HEADER_ALIASES.get(header, header.replace(" ", "_"))
+
+
+def normalize_import_value(value):
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def validate_import_headers(headers):
+    normalized = {normalize_import_header(header) for header in headers if header is not None}
+    if not {"name", "phone"}.issubset(normalized):
+        raise ValueError(
+            "The file must include Customer Name and Customer Phone columns "
+            "(or name and phone)."
+        )
+
+
 def normalize_import_row(row):
-    return {
-        str(key).strip().lower(): str(value).strip()
+    normalized = {
+        normalize_import_header(key): normalize_import_value(value)
         for key, value in row.items()
         if value is not None
     }
+    address_parts = [
+        normalized.pop(key, "")
+        for key in ("address", "city", "state", "pin_code")
+    ]
+    address = ", ".join(part for part in address_parts if part)
+    if address:
+        normalized["address"] = address
+    return normalized
 
 
 def read_import_rows(file_path: Path, extension: str):
@@ -346,6 +393,7 @@ def read_import_rows(file_path: Path, extension: str):
             reader = csv.DictReader(file)
             if not reader.fieldnames:
                 raise ValueError("The file must include a header row.")
+            validate_import_headers(reader.fieldnames)
             return [normalize_import_row(row) for row in reader]
 
     if extension == ".xls":
@@ -353,7 +401,8 @@ def read_import_rows(file_path: Path, extension: str):
 
         workbook = xlrd.open_workbook(file_path, on_demand=True)
         sheet = workbook.sheet_by_index(0)
-        headers = [str(value).strip().lower() for value in sheet.row_values(0)]
+        headers = sheet.row_values(0)
+        validate_import_headers(headers)
         rows = [
             normalize_import_row(dict(zip(headers, sheet.row_values(row_index))))
             for row_index in range(1, sheet.nrows)
@@ -369,7 +418,8 @@ def read_import_rows(file_path: Path, extension: str):
     workbook.close()
     if not values:
         raise ValueError("The file must include a header row.")
-    headers = [str(value).strip().lower() if value is not None else "" for value in values[0]]
+    headers = values[0]
+    validate_import_headers(headers)
     return [
         normalize_import_row(dict(zip(headers, row)))
         for row in values[1:]
@@ -403,8 +453,8 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
 
     try:
         rows = read_import_rows(file_path, extension)
-        if not rows or not {"name", "phone"}.issubset(rows[0]):
-            raise ValueError("The file must include name and phone columns.")
+        if not rows:
+            raise ValueError("The file must include at least one customer row.")
 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
         allowed_fields = {"name", "email", "phone", "address", "company", "status", "notes"}
