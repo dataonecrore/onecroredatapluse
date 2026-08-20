@@ -47,6 +47,8 @@ Customer reads require an authenticated Supabase session. Customer writes, impor
 
 For password recovery, add `FRONTEND_URL` to Supabase Authentication URL Configuration as an allowed redirect URL and set the same value in the backend deployment.
 
+For production, use `FRONTEND_URL=https://onecroredatapluse.vercel.app`. In Supabase **Authentication → URL Configuration**, set the Site URL to the same address and add that exact address to Redirect URLs. Railway deployments automatically reject a loopback recovery redirect and fall back to the production Vercel URL, but the Railway variable should still be corrected rather than left as `localhost`.
+
 ## Login activity reports
 
 Apply `supabase/migrations/20260820160010_login_events_reports.sql` before deploying the matching backend. The migration creates an append-only, server-only login event table and an indexed reporting function. RLS is enabled, direct `anon` and `authenticated` access is revoked, and only the backend service role can record and summarize login activity.

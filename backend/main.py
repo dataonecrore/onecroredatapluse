@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import requests
 from dotenv import load_dotenv
@@ -30,7 +30,28 @@ if not SUPABASE_KEY:
 
 REST_URL = f"{SUPABASE_URL}/rest/v1"
 AUTH_URL = f"{SUPABASE_URL}/auth/v1"
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://onecroredatapluse.vercel.app").rstrip("/")
+DEFAULT_FRONTEND_URL = "https://onecroredatapluse.vercel.app"
+
+
+def resolve_frontend_url(configured_url: Optional[str], hosted: bool = False) -> str:
+    frontend_url = (configured_url or DEFAULT_FRONTEND_URL).strip().rstrip("/")
+    parsed_url = urlparse(frontend_url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        raise RuntimeError("FRONTEND_URL must be an absolute http or https URL")
+    if hosted and parsed_url.hostname in {"localhost", "127.0.0.1", "::1"}:
+        return DEFAULT_FRONTEND_URL
+    return frontend_url
+
+
+IS_HOSTED_DEPLOYMENT = any(
+    os.getenv(variable)
+    for variable in (
+        "RAILWAY_PROJECT_ID",
+        "RAILWAY_ENVIRONMENT_ID",
+        "RAILWAY_SERVICE_ID",
+    )
+)
+FRONTEND_URL = resolve_frontend_url(os.getenv("FRONTEND_URL"), IS_HOSTED_DEPLOYMENT)
 ADMIN_EMAILS = {
     email.strip().lower()
     for email in (
