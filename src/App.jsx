@@ -26,7 +26,9 @@ function Login({ onLogin }) {
     }
 
     setError("");
-    onLogin();
+    onLogin({
+      isAdmin: /^admin(?:[+._-]|@)/i.test(email.trim()),
+    });
   };
 
   return (
@@ -655,14 +657,20 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
     setShowForm(true);
   };
 
-  const navItems = [
-    ["Dashboard", "▦"],
-    ["Customers", "♧"],
-    ...(isAdmin ? [["Import Customers", "☁"]] : []),
-    ["Follow-ups", "□"],
-    ["Reports", "▥"],
-    ["Settings", "⚙"],
-  ];
+  const navItems = isAdmin
+    ? [
+        ["Dashboard", "▦"],
+        ["Customers", "♧"],
+        ["Import Customers", "☁"],
+        ["Follow-ups", "□"],
+        ["Reports", "▥"],
+        ["Settings", "⚙"],
+      ]
+    : [
+        ["Dashboard", "▦"],
+        ["Follow-ups", "□"],
+        ["Settings", "⚙"],
+      ];
 
   const selectView = (item) => {
     setActiveView(item);
@@ -706,7 +714,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
             <div className="dashboard-avatar">BT</div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">Biksham Tarala</p>
-              <p className="text-xs text-slate-400">Admin</p>
+              <p className="text-xs text-slate-400">{isAdmin ? "Admin" : "User"}</p>
             </div>
             <span className="text-sm" aria-hidden="true">⌄</span>
           </div>
@@ -981,6 +989,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("onecrore-theme") || "light");
 
   useEffect(() => {
@@ -992,12 +1001,20 @@ function App() {
   return loggedIn ? (
     <Dashboard
       theme={theme}
-      isAdmin={true}
+      isAdmin={isAdmin}
       onThemeChange={setTheme}
-      onLogout={() => setLoggedIn(false)}
+      onLogout={() => {
+        setLoggedIn(false);
+        setIsAdmin(false);
+      }}
     />
   ) : (
-    <Login onLogin={() => setLoggedIn(true)} />
+    <Login
+      onLogin={({ isAdmin: nextIsAdmin }) => {
+        setIsAdmin(nextIsAdmin);
+        setLoggedIn(true);
+      }}
+    />
   );
 }
 
