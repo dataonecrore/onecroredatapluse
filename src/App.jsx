@@ -423,10 +423,10 @@ function CustomerImport() {
           <span className="mt-3 font-semibold text-slate-900">
             {file ? file.name : "Choose a customer file"}
           </span>
-          <span className="mt-1 text-sm text-slate-500">CSV or XLSX, up to 100 MB</span>
+          <span className="mt-1 text-sm text-slate-500">CSV, XLS, or XLSX, up to 100 MB</span>
           <input
             type="file"
-            accept=".csv,.xlsx"
+            accept=".csv,.xls,.xlsx"
             className="sr-only"
             onChange={(event) => setFile(event.target.files?.[0] || null)}
           />
@@ -503,7 +503,7 @@ function CustomerImport() {
             </div>
             {job.status === "ready" && (
               <p className="mt-3 text-sm text-slate-700">
-                {job.processed.toLocaleString()} rows checked, {job.invalid.toLocaleString()} invalid.
+                {job.processed.toLocaleString()} rows processed: {job.created || 0} added, {job.updated || 0} updated, {job.skipped || 0} skipped, {job.invalid.toLocaleString()} invalid.
               </p>
             )}
           </div>
@@ -521,7 +521,7 @@ function CustomerImport() {
   );
 }
 
-function Dashboard({ onLogout, isDark, onToggleTheme }) {
+function Dashboard({ onLogout, isDark, onToggleTheme, isAdmin }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -663,7 +663,14 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
     setShowForm(true);
   };
 
-  const navItems = ["Dashboard", "Customers", "Import Customers", "Follow-ups", "Reports", "Settings"];
+  const navItems = [
+    "Dashboard",
+    "Customers",
+    ...(isAdmin ? ["Import Customers"] : []),
+    "Follow-ups",
+    "Reports",
+    "Settings",
+  ];
 
   const selectView = (item) => {
     setActiveView(item);
@@ -799,18 +806,20 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
                 {isDark ? "Light" : "Dark"}
               </button>
 
-              <button
-                onClick={openAddCustomer}
-                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm"
-              >
-                + Add Customer
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={openAddCustomer}
+                  className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm"
+                >
+                  + Add Customer
+                </button>
+              )}
             </div>
           </div>
         </header>
 
         <div className="dashboard-content p-4 sm:p-6 lg:p-8">
-          {activeView === "Import Customers" ? (
+          {activeView === "Import Customers" && isAdmin ? (
             <CustomerImport />
           ) : (
           <>
@@ -986,7 +995,7 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
         </div>
       </main>
 
-      {showForm && (
+      {showForm && isAdmin && (
         <CustomerForm
           customer={editingCustomer}
           saving={saving}
@@ -1028,6 +1037,7 @@ function App() {
   return loggedIn ? (
     <Dashboard
       isDark={isDark}
+      isAdmin={true}
       onToggleTheme={() => setIsDark((value) => !value)}
       onLogout={() => setLoggedIn(false)}
     />

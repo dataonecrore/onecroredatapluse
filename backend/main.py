@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
 import requests
 from dotenv import load_dotenv
@@ -28,7 +29,7 @@ REST_URL = f"{SUPABASE_URL}/rest/v1"
 IMPORT_DIR = Path(__file__).parent / "imports"
 IMPORT_DIR.mkdir(exist_ok=True)
 MAX_IMPORT_SIZE = 100 * 1024 * 1024
-ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xlsx"}
+ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
 import_jobs = {}
 
 HEADERS = {
@@ -82,56 +83,137 @@ def update_import_job(job_id, **updates):
     }
 
 
-def inspect_import_file(job_id: str, file_path: Path, extension: str):
+def normalize_import_row(row):
+    return {
+        str(key).strip().lower(): str(value).strip()
+        for key, value in row.items()
+        if value is not None
+    }
+
+
+def read_import_rows(file_path: Path, extension: str):
+    if extension == ".csv":
+        with file_path.open("r", encoding="utf-8-sig", newline="") as file:
+            reader = csv.DictReader(file)
+            if not reader.fieldnames:
+                raise ValueError("The file must include a header row.")
+            return [normalize_import_row(row) for row in reader]
+
+    if extension == ".xls":
+        import xlrd
+
+        workbook = xlrd.open_workbook(file_path, on_demand=True)
+        sheet = workbook.sheet_by_index(0)
+        headers = [str(value).strip().lower() for value in sheet.row_values(0)]
+        rows = [
+            normalize_import_row(dict(zip(headers, sheet.row_values(row_index))))
+            for row_index in range(1, sheet.nrows)
+        ]
+        workbook.release_resources()
+        return rows
+
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(file_path, read_only=True, data_only=True)
+    sheet = workbook.active
+    values = list(sheet.values)
+    workbook.close()
+    if not values:
+        raise ValueError("The file must include a header row.")
+    headers = [str(value).strip().lower() if value is not None else "" for value in values[0]]
+    return [
+        normalize_import_row(dict(zip(headers, row)))
+        for row in values[1:]
+    ]
+
+
+def find_duplicate(customer, duplicate_keys):
+    for key in duplicate_keys:
+        value = customer.get(key)
+        if not value:
+            continue
+        response = requests.get(
+            f"{REST_URL}/customers?{key}=eq.{quote(value, safe='')}&select=id",
+            headers=HEADERS,
+            timeout=10,
+        )
+        if response.status_code != 200:
+            raise ValueError(f"Unable to check duplicate {key}: {response.text}")
+        data = response.json()
+        if data:
+            return data[0]["id"]
+    return None
+
+
+def import_customers(job_id: str, file_path: Path, extension: str, import_mode: str, duplicate_keys: str):
     processed = 0
     invalid = 0
+    created = 0
+    updated = 0
+    skipped = 0
 
     try:
-        if extension == ".csv":
-            with file_path.open("r", encoding="utf-8-sig", newline="") as file:
-                rows = csv.DictReader(file)
-                headers = {header.strip().lower() for header in (rows.fieldnames or [])}
+        rows = read_import_rows(file_path, extension)
+        if not rows or not {"name", "email"}.issubset(rows[0]):
+            raise ValueError("The file must include name and email columns.")
 
-                if not {"name", "email"}.issubset(headers):
-                    raise ValueError("The file must include name and email columns.")
+        selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
+        allowed_fields = {"name", "email", "phone", "company", "status", "notes"}
 
-                for row in rows:
-                    processed += 1
-                    normalized_row = {
-                        str(key).strip().lower(): value for key, value in row.items()
-                    }
-                    if not normalized_row.get("name") or not normalized_row.get("email"):
-                        invalid += 1
-        else:
-            from openpyxl import load_workbook
+        for row in rows:
+            processed += 1
+            customer = {key: row[key] for key in allowed_fields if row.get(key)}
+            if not customer.get("name") or not customer.get("email"):
+                invalid += 1
+                continue
 
-            workbook = load_workbook(file_path, read_only=True, data_only=True)
-            sheet = workbook.active
-            rows = sheet.iter_rows(values_only=True)
-            header_row = next(rows, [])
-            headers = [str(value).strip().lower() if value is not None else "" for value in header_row]
+            customer_id = find_duplicate(customer, selected_keys)
+            if customer_id and import_mode == "new":
+                skipped += 1
+                continue
 
-            if not {"name", "email"}.issubset(headers):
-                raise ValueError("The file must include name and email columns.")
+            if customer_id:
+                response = requests.patch(
+                    f"{REST_URL}/customers?id=eq.{quote(str(customer_id), safe='')}",
+                    headers=HEADERS,
+                    json=customer,
+                    timeout=10,
+                )
+                updated += 1
+            else:
+                response = requests.post(
+                    f"{REST_URL}/customers",
+                    headers=HEADERS,
+                    json=customer,
+                    timeout=10,
+                )
+                created += 1
 
-            name_index = headers.index("name")
-            email_index = headers.index("email")
-            for row in rows:
-                processed += 1
-                if len(row) <= max(name_index, email_index) or not row[name_index] or not row[email_index]:
-                    invalid += 1
-            workbook.close()
+            if response.status_code not in (200, 201, 204):
+                raise ValueError(response.text)
+
+            update_import_job(
+                job_id,
+                processed=processed,
+                invalid=invalid,
+                progress=round(processed / len(rows) * 100),
+            )
 
         update_import_job(
             job_id,
             status="ready",
             processed=processed,
             invalid=invalid,
+            created=created,
+            updated=updated,
+            skipped=skipped,
             progress=100,
-            message="File validated and staged. Database import is ready for the next step.",
+            message=f"Import complete: {created} added, {updated} updated, {skipped} skipped.",
         )
     except Exception as error:
         update_import_job(job_id, status="failed", message=str(error))
+    finally:
+        file_path.unlink(missing_ok=True)
 
 
 @app.post("/imports/customers", status_code=202)
@@ -144,7 +226,7 @@ async def upload_customers(
     extension = Path(file.filename or "").suffix.lower()
 
     if extension not in ALLOWED_IMPORT_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Only CSV and XLSX files are supported.")
+        raise HTTPException(status_code=400, detail="Only CSV, XLS, and XLSX files are supported.")
 
     job_id = str(uuid.uuid4())
     destination = IMPORT_DIR / f"{job_id}{extension}"
@@ -176,7 +258,14 @@ async def upload_customers(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "message": "File uploaded. Validating rows...",
     }
-    background_tasks.add_task(inspect_import_file, job_id, destination, extension)
+    background_tasks.add_task(
+        import_customers,
+        job_id,
+        destination,
+        extension,
+        import_mode,
+        duplicate_keys,
+    )
 
     return import_jobs[job_id]
 
