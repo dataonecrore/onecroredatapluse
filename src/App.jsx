@@ -10,6 +10,20 @@ const API_BASE_URL =
     ? PUBLIC_API_BASE_URL
     : configuredApiBaseUrl || PUBLIC_API_BASE_URL;
 
+let authToken = sessionStorage.getItem("onecrore-access-token") || "";
+
+function setAuthToken(token) {
+  authToken = token || "";
+  if (authToken) sessionStorage.setItem("onecrore-access-token", authToken);
+  else sessionStorage.removeItem("onecrore-access-token");
+}
+
+function apiFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (authToken) headers.set("Authorization", `Bearer ${authToken}`);
+  return fetch(url, { ...options, headers });
+}
+
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,7 +31,7 @@ function Login({ onLogin }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = (event) => {
+  const handleLogin = async (event) => {
     event.preventDefault();
 
     if (!email.trim() || !password.trim()) {
@@ -26,9 +40,20 @@ function Login({ onLogin }) {
     }
 
     setError("");
-    onLogin({
-      isAdmin: /^admin(?:[+._-]|@)/i.test(email.trim()),
-    });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to sign in.");
+      setAuthToken(data.access_token);
+      onLogin(data.user);
+    } catch (loginError) {
+      setError(loginError.message || "Unable to sign in.");
+    }
   };
 
   return (
@@ -360,7 +385,7 @@ function CustomerImport() {
           .join(",")
       );
 
-      const response = await fetch(`${API_BASE_URL}/imports/customers`, {
+      const response = await apiFetch(`${API_BASE_URL}/imports/customers`, {
         method: "POST",
         body: formData,
       });
@@ -375,7 +400,7 @@ function CustomerImport() {
 
       while (currentJob.status === "processing") {
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        const statusResponse = await fetch(`${API_BASE_URL}/imports/${currentJob.id}`);
+        const statusResponse = await apiFetch(`${API_BASE_URL}/imports/${currentJob.id}`);
 
         if (!statusResponse.ok) {
           throw new Error("Unable to read import progress.");
@@ -509,6 +534,90 @@ function CustomerImport() {
   );
 }
 
+function AdminUsers() {
+  const [users, setUsers] = useState([]);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("user");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const loadUsers = async () => {
+    const response = await apiFetch(`${API_BASE_URL}/auth/users`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Unable to load users.");
+    setUsers(data);
+  };
+
+  useEffect(() => {
+    loadUsers().catch((loadError) => setError(loadError.message));
+  }, []);
+
+  const inviteUser = async (event) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/auth/users/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to send invitation.");
+      setEmail("");
+      setMessage(`Invitation sent to ${data.email}.`);
+      await loadUsers();
+    } catch (inviteError) {
+      setError(inviteError.message);
+    }
+  };
+
+  const updateRole = async (userId, nextRole) => {
+    setError("");
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/auth/users/${userId}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: nextRole }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to update role.");
+      setUsers((currentUsers) => currentUsers.map((user) => user.id === userId ? { ...user, role: data.role } : user));
+    } catch (roleError) {
+      setError(roleError.message);
+    }
+  };
+
+  return (
+    <div className="dashboard-customers overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 p-5">
+        <h2 className="text-2xl font-bold text-slate-950">User Access</h2>
+        <p className="mt-1 text-sm text-slate-500">Invite users and control access to customer data.</p>
+      </div>
+      <form onSubmit={inviteUser} className="flex flex-col gap-3 border-b border-slate-200 p-5 sm:flex-row">
+        <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="user@company.com" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-600" />
+        <select value={role} onChange={(event) => setRole(event.target.value)} className="rounded-xl border border-slate-300 px-4 py-2.5">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Invite User</button>
+      </form>
+      {(message || error) && <p className={`px-5 py-3 text-sm ${error ? "text-red-600" : "text-emerald-600"}`}>{error || message}</p>}
+      <div className="divide-y divide-slate-100">
+        {users.map((user) => (
+          <div key={user.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-medium text-slate-900">{user.email}</span>
+            <select value={user.role} onChange={(event) => updateRole(user.id, event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-32">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
@@ -528,7 +637,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
     setApiError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/customers`);
+      const response = await apiFetch(`${API_BASE_URL}/customers`);
 
       if (!response.ok) {
         throw new Error("Unable to load customers.");
@@ -585,7 +694,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
     try {
       const isEditing = Boolean(editingCustomer);
 
-      const response = await fetch(
+      const response = await apiFetch(
         isEditing
           ? `${API_BASE_URL}/customers/${editingCustomer.id}`
           : `${API_BASE_URL}/customers`,
@@ -630,7 +739,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
     setApiError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/customers/${customer.id}`, {
+      const response = await apiFetch(`${API_BASE_URL}/customers/${customer.id}`, {
         method: "DELETE",
       });
 
@@ -834,6 +943,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
         <div className="dashboard-content p-4 sm:p-6 lg:p-8">
           {activeView === "Import Customers" && isAdmin ? (
             <CustomerImport />
+          ) : activeView === "Settings" && isAdmin ? (
+            <AdminUsers />
           ) : (
           <>
           {apiError && (
@@ -988,7 +1099,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
 }
 
 function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(Boolean(authToken));
   const [isAdmin, setIsAdmin] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("onecrore-theme") || "light");
 
@@ -998,20 +1109,29 @@ function App() {
     localStorage.setItem("onecrore-theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (!authToken) return;
+    apiFetch(`${API_BASE_URL}/auth/users`).then((response) => {
+      if (response.status === 403) setIsAdmin(false);
+      else if (response.ok) setIsAdmin(true);
+    }).catch(() => undefined);
+  }, []);
+
   return loggedIn ? (
     <Dashboard
       theme={theme}
       isAdmin={isAdmin}
       onThemeChange={setTheme}
       onLogout={() => {
+        setAuthToken("");
         setLoggedIn(false);
         setIsAdmin(false);
       }}
     />
   ) : (
     <Login
-      onLogin={({ isAdmin: nextIsAdmin }) => {
-        setIsAdmin(nextIsAdmin);
+      onLogin={({ role }) => {
+        setIsAdmin(role === "admin");
         setLoggedIn(true);
       }}
     />

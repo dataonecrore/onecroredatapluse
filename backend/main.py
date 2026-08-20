@@ -8,8 +8,9 @@ from urllib.parse import quote
 
 import requests
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr
 
 
@@ -26,6 +27,12 @@ if not SUPABASE_KEY:
 
 
 REST_URL = f"{SUPABASE_URL}/rest/v1"
+AUTH_URL = f"{SUPABASE_URL}/auth/v1"
+ADMIN_EMAILS = {
+    email.strip().lower()
+    for email in os.getenv("ADMIN_EMAILS", "").split(",")
+    if email.strip()
+}
 IMPORT_DIR = Path(__file__).parent / "imports"
 IMPORT_DIR.mkdir(exist_ok=True)
 MAX_IMPORT_SIZE = 100 * 1024 * 1024
@@ -57,6 +64,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+bearer_scheme = HTTPBearer(auto_error=False)
+
 
 class CustomerCreate(BaseModel):
     name: str
@@ -76,6 +85,136 @@ class CustomerUpdate(BaseModel):
     company: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class InviteRequest(BaseModel):
+    email: EmailStr
+    role: str = "user"
+
+
+class RoleUpdate(BaseModel):
+    role: str
+
+
+def auth_headers(token: str):
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {token}",
+    }
+
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+
+    response = requests.get(
+        f"{AUTH_URL}/user",
+        headers=auth_headers(credentials.credentials),
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired session.")
+
+    user = response.json()
+    metadata = user.get("app_metadata") or {}
+    email = (user.get("email") or "").lower()
+    user["role"] = metadata.get("role", "admin" if email in ADMIN_EMAILS else "user")
+    return user
+
+
+def require_admin(user=Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Administrator access required.")
+    return user
+
+
+@app.post("/auth/login")
+def login(payload: LoginRequest):
+    response = requests.post(
+        f"{AUTH_URL}/token?grant_type=password",
+        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+        json={"email": payload.email, "password": payload.password},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    session = response.json()
+    user_response = requests.get(
+        f"{AUTH_URL}/user",
+        headers=auth_headers(session["access_token"]),
+        timeout=10,
+    )
+    user = user_response.json()
+    metadata = user.get("app_metadata") or {}
+    email = (user.get("email") or "").lower()
+    role = metadata.get("role", "admin" if email in ADMIN_EMAILS else "user")
+    return {"access_token": session["access_token"], "user": {"email": email, "role": role}}
+
+
+@app.get("/auth/users")
+def list_users(_: dict = Depends(require_admin)):
+    response = requests.get(
+        f"{AUTH_URL}/admin/users",
+        headers=HEADERS,
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    return [
+        {"id": user["id"], "email": user.get("email"), "role": (user.get("app_metadata") or {}).get("role", "user")}
+        for user in response.json().get("users", [])
+    ]
+
+
+@app.post("/auth/users/invite", status_code=201)
+def invite_user(payload: InviteRequest, _: dict = Depends(require_admin)):
+    if payload.role not in {"admin", "user"}:
+        raise HTTPException(status_code=400, detail="Role must be admin or user.")
+
+    response = requests.post(
+        f"{AUTH_URL}/admin/invite",
+        headers=HEADERS,
+        json={"email": payload.email},
+        timeout=10,
+    )
+    if response.status_code not in (200, 201):
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    invited_user = response.json().get("user") or response.json()
+    user_id = invited_user.get("id")
+    if user_id:
+        role_response = requests.put(
+            f"{AUTH_URL}/admin/users/{user_id}",
+            headers=HEADERS,
+            json={"app_metadata": {"role": payload.role}},
+            timeout=10,
+        )
+        if role_response.status_code != 200:
+            raise HTTPException(status_code=role_response.status_code, detail=role_response.text)
+
+    return {"email": payload.email, "role": payload.role, "message": "Invitation sent."}
+
+
+@app.patch("/auth/users/{user_id}/role")
+def update_user_role(user_id: str, payload: RoleUpdate, _: dict = Depends(require_admin)):
+    if payload.role not in {"admin", "user"}:
+        raise HTTPException(status_code=400, detail="Role must be admin or user.")
+
+    response = requests.put(
+        f"{AUTH_URL}/admin/users/{user_id}",
+        headers=HEADERS,
+        json={"app_metadata": {"role": payload.role}},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    return {"id": user_id, "role": payload.role}
 
 
 def update_import_job(job_id, **updates):
@@ -224,6 +363,7 @@ async def upload_customers(
     file: UploadFile = File(...),
     import_mode: str = Form("update"),
     duplicate_keys: str = Form("phone,email"),
+    _: dict = Depends(require_admin),
 ):
     extension = Path(file.filename or "").suffix.lower()
 
@@ -273,7 +413,7 @@ async def upload_customers(
 
 
 @app.get("/imports/{job_id}")
-def get_import_job(job_id: str):
+def get_import_job(job_id: str, _: dict = Depends(get_current_user)):
     job = import_jobs.get(job_id)
 
     if not job:
@@ -297,7 +437,7 @@ def health():
 
 
 @app.get("/customers")
-def get_customers():
+def get_customers(_: dict = Depends(get_current_user)):
     response = requests.get(
         f"{REST_URL}/customers?select=*&order=created_at.desc",
         headers=HEADERS,
@@ -314,7 +454,7 @@ def get_customers():
 
 
 @app.get("/customers/{customer_id}")
-def get_customer(customer_id: str):
+def get_customer(customer_id: str, _: dict = Depends(get_current_user)):
     response = requests.get(
         f"{REST_URL}/customers?id=eq.{customer_id}&select=*",
         headers=HEADERS,
@@ -339,7 +479,7 @@ def get_customer(customer_id: str):
 
 
 @app.post("/customers", status_code=201)
-def create_customer(customer: CustomerCreate):
+def create_customer(customer: CustomerCreate, _: dict = Depends(require_admin)):
     response = requests.post(
         f"{REST_URL}/customers",
         headers=HEADERS,
@@ -364,6 +504,7 @@ def create_customer(customer: CustomerCreate):
 def update_customer(
     customer_id: str,
     customer: CustomerUpdate,
+    _: dict = Depends(require_admin),
 ):
     payload = customer.model_dump(
         exclude_none=True
@@ -400,7 +541,7 @@ def update_customer(
 
 
 @app.delete("/customers/{customer_id}")
-def delete_customer(customer_id: str):
+def delete_customer(customer_id: str, _: dict = Depends(require_admin)):
     response = requests.delete(
         f"{REST_URL}/customers?id=eq.{customer_id}",
         headers=HEADERS,
