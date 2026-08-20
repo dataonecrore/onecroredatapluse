@@ -165,7 +165,7 @@ def _insert_staged(cursor, job_id: uuid.UUID, duplicate_mode: str) -> int:
         f"""
         with stage as ({selection}), inserted as (
           insert into public.customers (
-            customer_name, phone, address, source_customer_id,
+            name, phone, address, source_customer_id,
             import_job_id, import_source_row
           )
           select stage.customer_name, stage.phone, stage.address,

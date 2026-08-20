@@ -11,6 +11,7 @@ from backend.bulk_import import (
     normalized_phone,
     parse_customer_row,
     validate_headers,
+    _insert_staged,
 )
 
 
@@ -23,6 +24,23 @@ COLUMNS = {
 
 
 class BulkImportTests(unittest.TestCase):
+    def test_staged_insert_targets_live_name_column(self):
+        class Cursor:
+            statement = ""
+
+            def execute(self, statement, _parameters):
+                self.statement = statement
+
+            def fetchone(self):
+                return (2,)
+
+        cursor = Cursor()
+        inserted = _insert_staged(cursor, "00000000-0000-0000-0000-000000000000", "preserve")
+        self.assertEqual(inserted, 2)
+        self.assertIn("insert into public.customers", cursor.statement)
+        self.assertIn("name, phone, address", cursor.statement)
+        self.assertNotIn("customer_name, phone, address", cursor.statement)
+
     def test_normalized_phone_keeps_digits_only(self):
         self.assertEqual(normalized_phone("+91 (987) 65-43210"), "919876543210")
 
