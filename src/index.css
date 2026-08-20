@@ -16,6 +16,7 @@
 }
 
 html {
+  overflow-y: auto;
   min-width: 320px;
   min-height: 100%;
 }
@@ -225,10 +226,20 @@ button {
 
 .dashboard-sidebar {
   width: 276px !important;
+  overflow-y: auto;
   color: #1e293b;
   background: #ffffff !important;
   border-right: 1px solid #e5eaf2;
   box-shadow: 12px 0 30px rgba(31, 64, 140, 0.06);
+}
+
+.dashboard-sidebar .dashboard-nav {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dashboard-sidebar > .mt-auto {
+  flex-shrink: 0;
 }
 
 .dashboard-sidebar > div:first-child {
@@ -388,6 +399,47 @@ button {
 @media (min-width: 1024px) {
   .dashboard-main {
     padding-left: 276px !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 820px) {
+  .dashboard-sidebar > div:first-child {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .dashboard-sidebar .dashboard-nav {
+    gap: 4px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .dashboard-sidebar .dashboard-nav-item {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .dashboard-sidebar > .mt-auto {
+    padding: 10px;
+  }
+
+  .dashboard-sidebar .dashboard-growth {
+    margin-bottom: 10px;
+    padding: 12px;
+  }
+
+  .dashboard-sidebar .dashboard-growth-button {
+    margin-top: 10px;
+  }
+
+  .dashboard-sidebar .dashboard-profile {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .dashboard-sidebar > .mt-auto > button {
+    padding-top: 9px;
+    padding-bottom: 9px;
   }
 }
 
