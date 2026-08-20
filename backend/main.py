@@ -2,6 +2,7 @@ import csv
 import os
 import re
 import uuid
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -90,6 +91,7 @@ app.add_middleware(
 )
 
 bearer_scheme = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 class CustomerCreate(BaseModel):
@@ -205,6 +207,32 @@ def require_admin(user=Depends(get_current_user)):
     return user
 
 
+def record_login_event(user: dict) -> bool:
+    user_id = user.get("id")
+    email = (user.get("email") or "").strip().lower()
+    if not user_id or not email:
+        return False
+
+    try:
+        response = requests.post(
+            f"{REST_URL}/login_events",
+            headers=HEADERS,
+            json={
+                "user_id": user_id,
+                "user_email": email,
+                "user_name": (user.get("user_metadata") or {}).get("name"),
+            },
+            timeout=5,
+        )
+        if response.status_code not in (200, 201):
+            logger.warning("Unable to record login event (status %s).", response.status_code)
+            return False
+    except requests.RequestException:
+        logger.warning("Unable to record login event due to a Supabase request error.")
+        return False
+    return True
+
+
 @app.post("/auth/login")
 def login(payload: LoginRequest):
     response = requests.post(
@@ -230,6 +258,7 @@ def login(payload: LoginRequest):
     user = user_response.json()
     email = (user.get("email") or "").lower()
     role = resolve_user_role(user)
+    record_login_event(user)
     return {"access_token": session["access_token"], "user": {"email": email, "role": role}}
 
 
@@ -322,6 +351,42 @@ def get_auth_user(user: dict = Depends(get_current_user)):
         "email": user.get("email"),
         "role": user.get("role", "user"),
     }
+
+
+@app.get("/reports/login-activity")
+def get_login_activity_report(
+    period: Literal["daily", "weekly", "monthly", "all"] = "daily",
+    recent_limit: int = Query(20, ge=1, le=100),
+    _: dict = Depends(require_admin),
+):
+    summary_response = requests.post(
+        f"{REST_URL}/rpc/login_activity_summary",
+        headers=HEADERS,
+        json={"p_period": period},
+        timeout=10,
+    )
+    if summary_response.status_code != 200:
+        raise HTTPException(
+            status_code=503,
+            detail="Login reporting is unavailable. Apply the login-events database migration.",
+        )
+
+    recent_response = requests.get(
+        f"{REST_URL}/login_events",
+        headers=HEADERS,
+        params={
+            "select": "id,user_id,user_email,user_name,occurred_at",
+            "order": "occurred_at.desc",
+            "limit": str(recent_limit),
+        },
+        timeout=10,
+    )
+    if recent_response.status_code != 200:
+        raise HTTPException(status_code=503, detail="Unable to load recent login activity.")
+
+    report = summary_response.json()
+    report["recent_logins"] = recent_response.json()
+    return report
 
 
 def find_auth_user_by_email(email: str):

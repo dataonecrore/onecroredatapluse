@@ -810,6 +810,151 @@ function AdminUsers() {
   );
 }
 
+const LOGIN_REPORT_PERIODS = [
+  ["daily", "Today"],
+  ["weekly", "This week"],
+  ["monthly", "This month"],
+  ["all", "All time"],
+];
+
+function LoginReports() {
+  const [period, setPeriod] = useState("daily");
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadReport = async (selectedPeriod = period) => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ period: selectedPeriod, recent_limit: "25" });
+      const response = await apiFetch(`${API_BASE_URL}/reports/login-activity?${params}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to load login activity.");
+      setReport(data);
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load login activity.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadReport(period);
+  }, [period]);
+
+  const totalLogins = Number(report?.total_logins || 0);
+  const uniqueUsers = Number(report?.unique_users || 0);
+  const averageLogins = uniqueUsers ? (totalLogins / uniqueUsers).toFixed(1) : "0.0";
+  const maximumBucket = Math.max(1, ...(report?.series || []).map((item) => Number(item.login_count || 0)));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">Admin analytics</p>
+          <h2 className="mt-2 text-2xl font-bold text-slate-950">Login Activity</h2>
+          <p className="mt-1 text-sm text-slate-500">Successful web application logins, reported in India Standard Time.</p>
+        </div>
+        <button type="button" onClick={() => void loadReport()} disabled={loading} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+          {loading ? "Refreshing..." : "Refresh report"}
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2" aria-label="Report period">
+        {LOGIN_REPORT_PERIODS.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setPeriod(value)}
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${period === value ? "bg-blue-600 text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <p className="font-semibold">Unable to load the report</p>
+          <p className="mt-1">{error}</p>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[
+          ["Successful logins", totalLogins],
+          ["Unique users", uniqueUsers],
+          ["Average per user", averageLogins],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">{label}</p>
+            <p className="mt-2 text-3xl font-bold text-slate-950">{loading && !report ? "—" : value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-lg font-bold text-slate-950">Login trend</h3>
+            <p className="text-sm text-slate-500">Counts for the selected reporting period.</p>
+          </div>
+          {report?.generated_at && <p className="text-xs text-slate-400">Updated {new Date(report.generated_at).toLocaleString()}</p>}
+        </div>
+        <div className="mt-6 overflow-x-auto pb-2">
+          <div className="flex min-h-56 min-w-max items-end gap-2 border-b border-slate-200 px-2">
+            {(report?.series || []).map((item) => (
+              <div key={item.bucket_start} className="flex w-12 flex-col items-center justify-end gap-2">
+                <span className="text-xs font-semibold text-slate-600">{item.login_count}</span>
+                <div className="w-8 rounded-t-lg bg-blue-600" style={{ height: `${Math.max(4, (Number(item.login_count || 0) / maximumBucket) * 150)}px` }} />
+                <span className="h-10 text-center text-[10px] leading-tight text-slate-500">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-customers overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-5">
+          <h3 className="text-lg font-bold text-slate-950">Recent logins</h3>
+          <p className="mt-1 text-sm text-slate-500">The latest 25 successful sign-ins.</p>
+        </div>
+        <div className="hidden overflow-x-auto sm:block">
+          <table className="min-w-full">
+            <thead className="bg-slate-50">
+              <tr>
+                {['User', 'Email', 'Login time'].map((heading) => <th key={heading} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">{heading}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(report?.recent_logins || []).map((login) => (
+                <tr key={login.id}>
+                  <td className="px-5 py-4 text-sm font-semibold text-slate-900">{login.user_name || "Name not provided"}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{login.user_email}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{new Date(login.occurred_at).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="divide-y divide-slate-100 sm:hidden">
+          {(report?.recent_logins || []).map((login) => (
+            <div key={login.id} className="p-4">
+              <p className="font-semibold text-slate-900">{login.user_name || "Name not provided"}</p>
+              <p className="break-all text-sm text-slate-500">{login.user_email}</p>
+              <p className="mt-1 text-xs text-slate-400">{new Date(login.occurred_at).toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+        {!loading && !error && (report?.recent_logins || []).length === 0 && <p className="px-5 py-10 text-center text-sm text-slate-500">No login events have been recorded yet.</p>}
+      </div>
+
+      <p className="text-xs text-slate-400">Tracking begins after the login-events migration and backend deployment. Earlier login history cannot be reconstructed from Supabase Auth.</p>
+    </div>
+  );
+}
+
 function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
@@ -1001,7 +1146,6 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
     : [
         ["Dashboard", "▦"],
         ["Follow-ups", "□"],
-        ["Reports", "▥"],
       ];
 
   const isCustomerSearchView = activeView === "Dashboard";
@@ -1170,6 +1314,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
             <CustomerImport />
           ) : activeView === "Customers" && isAdmin ? (
             <AdminUsers />
+          ) : activeView === "Reports" && isAdmin ? (
+            <LoginReports />
           ) : isCustomerSearchView ? (
           <>
           {apiError && (
@@ -1333,14 +1479,14 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
             <div className="rounded-2xl border border-slate-200 bg-white px-6 py-14 text-center shadow-sm">
               <h2 className="text-xl font-bold text-slate-950">{activeView}</h2>
               <p className="mt-2 text-sm text-slate-500">
-                This feature is not available yet. Use Customers to search customer records.
+                This feature is not available yet. Use Dashboard to search customer records.
               </p>
               <button
                 type="button"
-                onClick={() => selectView("Customers")}
+                onClick={() => selectView("Dashboard")}
                 className="mt-5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
               >
-                Open Customers
+                Open Dashboard
               </button>
             </div>
           )}
