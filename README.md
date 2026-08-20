@@ -23,13 +23,13 @@ ADMIN_EMAILS=admin@your-company.com
 FRONTEND_URL=https://onecroredatapluse.vercel.app
 ```
 
-For a temporary read-only demo that opens the dashboard without login, set this frontend environment variable:
+The app currently runs in temporary read-only demo mode by default and opens the dashboard without login. Demo mode uses local sample data. To restore Supabase login, set this frontend environment variable:
 
 ```env
 VITE_BYPASS_LOGIN=true
 ```
 
-Demo mode uses local sample data and does not access protected customer APIs. Remove the variable or set it to `false` to restore Supabase login.
+Set it to `false` to restore Supabase login. Demo mode does not access protected customer APIs.
 
 The first administrator must be listed in `ADMIN_EMAILS`. After signing in, an admin can open **Settings** to invite users and assign `user` or `admin` roles. Invitations are sent by Supabase Auth; users must complete the invitation flow before signing in.
 

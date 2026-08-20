@@ -9,7 +9,7 @@ const API_BASE_URL =
   import.meta.env.PROD && isLoopbackApi
     ? PUBLIC_API_BASE_URL
     : configuredApiBaseUrl || PUBLIC_API_BASE_URL;
-const isDemoMode = import.meta.env.VITE_BYPASS_LOGIN === "true";
+const isDemoMode = import.meta.env.VITE_BYPASS_LOGIN !== "false";
 const DEMO_CUSTOMERS = [
   {
     id: "demo-001",
