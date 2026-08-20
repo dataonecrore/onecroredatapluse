@@ -9,6 +9,15 @@ const API_BASE_URL =
   import.meta.env.PROD && isLoopbackApi
     ? PUBLIC_API_BASE_URL
     : configuredApiBaseUrl || PUBLIC_API_BASE_URL;
+const isDemoMode = import.meta.env.VITE_BYPASS_LOGIN === "true";
+const DEMO_CUSTOMERS = [
+  {
+    id: "demo-001",
+    name: "BIXAM TARALA",
+    email: "demo@example.com",
+    address: "Demo workspace",
+  },
+];
 
 let authToken = sessionStorage.getItem("onecrore-access-token") || "";
 
@@ -768,7 +777,7 @@ function AdminUsers() {
   );
 }
 
-function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
+function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -785,6 +794,12 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
   const loadCustomers = async () => {
     setLoading(true);
     setApiError("");
+
+    if (demoMode) {
+      setCustomers(DEMO_CUSTOMERS);
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await apiFetch(`${API_BASE_URL}/customers`);
@@ -1249,7 +1264,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
 }
 
 function App() {
-  const [loggedIn, setLoggedIn] = useState(Boolean(authToken));
+  const [loggedIn, setLoggedIn] = useState(isDemoMode || Boolean(authToken));
   const [isAdmin, setIsAdmin] = useState(false);
   const [recoveryToken, setRecoveryToken] = useState(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
@@ -1287,6 +1302,7 @@ function App() {
     <Dashboard
       theme={theme}
       isAdmin={isAdmin}
+      demoMode={isDemoMode}
       onThemeChange={setTheme}
       onLogout={() => {
         setAuthToken("");
