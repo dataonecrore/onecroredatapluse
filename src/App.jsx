@@ -805,13 +805,6 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
               >
                 + Add Customer
               </button>
-
-              <button
-                onClick={onLogout}
-                className="hidden rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 sm:inline-flex"
-              >
-                Sign out
-              </button>
             </div>
           </div>
         </header>
