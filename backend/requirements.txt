@@ -6,3 +6,4 @@ email-validator
 python-multipart
 openpyxl
 xlrd
+psycopg[binary]==3.3.4
