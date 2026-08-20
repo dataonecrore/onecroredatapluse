@@ -521,7 +521,7 @@ function CustomerImport() {
   );
 }
 
-function Dashboard({ onLogout, isDark, onToggleTheme, isAdmin }) {
+function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -534,6 +534,7 @@ function Dashboard({ onLogout, isDark, onToggleTheme, isAdmin }) {
   const [apiError, setApiError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeView, setActiveView] = useState("Dashboard");
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -797,14 +798,26 @@ function Dashboard({ onLogout, isDark, onToggleTheme, isAdmin }) {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={onToggleTheme}
-                className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark-mode-control"
-                aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-              >
-                {isDark ? "Light" : "Dark"}
-              </button>
+              <div className="appearance-control">
+                <button type="button" onClick={() => setAppearanceOpen((value) => !value)} className="appearance-trigger" aria-label="Choose appearance" aria-expanded={appearanceOpen}>☼</button>
+                {appearanceOpen && (
+                  <div className="appearance-popover">
+                    <div className="appearance-popover-heading"><p>Appearance</p><span>Choose the interface palette.</span></div>
+                    {[
+                      ["light", "☼", "Light", "Bright and clean"],
+                      ["dark", "☾", "Dark", "Neutral charcoal"],
+                      ["night", "✧", "Night", "Deep navy"],
+                    ].map(([value, icon, label, description]) => (
+                      <button key={value} type="button" onClick={() => { onThemeChange(value); setAppearanceOpen(false); }} className={`appearance-option ${theme === value ? "appearance-option-active" : ""}`}>
+                        <span className="appearance-option-icon">{icon}</span>
+                        <span className="appearance-option-copy"><strong>{label}</strong><small>{description}</small></span>
+                        <span className="appearance-option-dot" />
+                      </button>
+                    ))}
+                    <div className="appearance-popover-footer">Saved automatically on this device.</div>
+                  </div>
+                )}
+              </div>
 
               {isAdmin && (
                 <button
@@ -1025,20 +1038,19 @@ function Dashboard({ onLogout, isDark, onToggleTheme, isAdmin }) {
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem("onecrore-theme") === "dark";
-  });
+  const [theme, setTheme] = useState(() => localStorage.getItem("onecrore-theme") || "light");
 
   useEffect(() => {
-    document.documentElement.classList.toggle("theme-dark", isDark);
-    localStorage.setItem("onecrore-theme", isDark ? "dark" : "light");
-  }, [isDark]);
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    document.documentElement.classList.toggle("theme-night", theme === "night");
+    localStorage.setItem("onecrore-theme", theme);
+  }, [theme]);
 
   return loggedIn ? (
     <Dashboard
-      isDark={isDark}
+      theme={theme}
       isAdmin={true}
-      onToggleTheme={() => setIsDark((value) => !value)}
+      onThemeChange={setTheme}
       onLogout={() => setLoggedIn(false)}
     />
   ) : (

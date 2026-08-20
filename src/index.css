@@ -35,6 +35,128 @@ button {
   cursor: pointer;
 }
 
+.appearance-control {
+  position: relative;
+}
+
+.appearance-trigger {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  color: #2563eb;
+  background: #eff6ff;
+  font-size: 23px;
+  line-height: 1;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.12);
+}
+
+.appearance-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: 255px;
+  overflow: hidden;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
+}
+
+.appearance-popover-heading {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid #edf1f7;
+}
+
+.appearance-popover-heading p {
+  margin: 0;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.appearance-popover-heading span,
+.appearance-option-copy small {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.appearance-popover-heading span {
+  margin-top: 4px;
+}
+
+.appearance-option {
+  display: flex;
+  width: calc(100% - 16px);
+  align-items: center;
+  gap: 12px;
+  margin: 8px;
+  padding: 8px;
+  border: 0;
+  border-radius: 12px;
+  text-align: left;
+  background: transparent;
+}
+
+.appearance-option-active {
+  background: #eff6ff;
+}
+
+.appearance-option-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+  color: #50627d;
+  background: #f1f5f9;
+  font-size: 20px;
+}
+
+.appearance-option-active .appearance-option-icon {
+  color: #fff;
+  background: #2463ed;
+}
+
+.appearance-option-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.appearance-option-copy strong {
+  display: block;
+  color: #24324a;
+  font-size: 13px;
+}
+
+.appearance-option-copy small {
+  margin-top: 2px;
+}
+
+.appearance-option-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.appearance-option-active .appearance-option-dot {
+  background: #2463ed;
+}
+
+.appearance-popover-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #edf1f7;
+  color: #64748b;
+  font-size: 11px;
+}
+
 .login-page {
   background: #020617;
 }
@@ -264,6 +386,25 @@ button {
   color: #94a3b8 !important;
 }
 
+.theme-dark .appearance-popover {
+  border-color: #334155;
+  background: #1e293b;
+}
+
+.theme-dark .appearance-popover-heading p,
+.theme-dark .appearance-option-copy strong {
+  color: #f8fafc;
+}
+
+.theme-dark .appearance-popover-heading,
+.theme-dark .appearance-popover-footer {
+  border-color: #334155;
+}
+
+.theme-dark .appearance-option-active {
+  background: #243b63;
+}
+
 .theme-dark .dark-mode-control {
   color: #e2e8f0 !important;
   border-color: #475569 !important;
@@ -271,4 +412,70 @@ button {
 
 .theme-dark .dark-mode-control:hover {
   background: #334155 !important;
+}
+
+.theme-night {
+  color-scheme: dark;
+  background: #07152f;
+}
+
+.theme-night body,
+.theme-night .bg-slate-100 {
+  background: #07152f !important;
+}
+
+.theme-night .bg-white {
+  background: #10244a !important;
+}
+
+.theme-night .bg-slate-50 {
+  background: #152d57 !important;
+}
+
+.theme-night .text-slate-950,
+.theme-night .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.theme-night .text-slate-700,
+.theme-night .text-slate-600,
+.theme-night .text-slate-500 {
+  color: #bfd0ea !important;
+}
+
+.theme-night .border-slate-200,
+.theme-night .border-slate-300 {
+  border-color: #2b4774 !important;
+}
+
+.theme-night input,
+.theme-night select,
+.theme-night textarea {
+  background: #0d1d3c !important;
+  color: #f8fafc !important;
+  border-color: #385783 !important;
+}
+
+.theme-night .dashboard-header {
+  background: rgba(16, 36, 74, 0.94) !important;
+  border-color: #2b4774 !important;
+}
+
+.theme-night .appearance-popover {
+  border-color: #2b4774;
+  background: #10244a;
+}
+
+.theme-night .appearance-popover-heading p,
+.theme-night .appearance-option-copy strong {
+  color: #f8fafc;
+}
+
+.theme-night .appearance-popover-heading,
+.theme-night .appearance-popover-footer {
+  border-color: #2b4774;
+}
+
+.theme-night .appearance-option-active {
+  background: #173a75;
 }
