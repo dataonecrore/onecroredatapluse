@@ -838,7 +838,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
               <div>
                 <h2 className="flex items-center gap-3 text-2xl font-bold text-slate-950"><span className="dashboard-section-icon">♧</span>Customers</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Search, view and edit customer records
+                  Search customer records
                 </p>
               </div>
 
@@ -883,20 +883,6 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
                         <tr key={customer.id} className="transition hover:bg-slate-50">
                           <td className="px-5 py-4">
                             <p className="font-semibold text-slate-900">{customer.name}</p>
-                            <div className="mt-1 flex gap-3">
-                              <button
-                                onClick={() => setSelectedCustomer(customer)}
-                                className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-                              >
-                                View
-                              </button>
-                              <button
-                                onClick={() => openEditCustomer(customer)}
-                                className="text-sm font-semibold text-slate-600 hover:text-slate-900"
-                              >
-                                Edit
-                              </button>
-                            </div>
                           </td>
 
                           <td className="px-5 py-4 text-sm text-slate-600">
@@ -937,20 +923,6 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
                         </p>
                       </div>
 
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          onClick={() => setSelectedCustomer(customer)}
-                          className="flex-1 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => openEditCustomer(customer)}
-                          className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700"
-                        >
-                          Edit
-                        </button>
-                      </div>
                     </div>
                   ))}
                 </div>
