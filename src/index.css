@@ -298,6 +298,7 @@ button {
 
 .dashboard-nav-item.bg-blue-600 {
   background: linear-gradient(100deg, #2563eb, #1236d8) !important;
+  color: #ffffff !important;
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.32);
 }
 
@@ -350,10 +351,32 @@ button {
   color: #526176;
 }
 
+.dashboard-mobile-drawer .dashboard-nav-item.bg-blue-600 {
+  color: #ffffff !important;
+}
+
 .dashboard-mobile-drawer .dashboard-nav-item:hover:not(.bg-blue-600) {
   color: #1d4ed8;
   background: #eff6ff;
   border-color: #dbeafe;
+}
+
+.dashboard-sidebar > .mt-auto > button {
+  color: #526176 !important;
+}
+
+.dashboard-sidebar > .mt-auto > button:hover {
+  color: #1e293b !important;
+  background: #eff6ff;
+}
+
+.dashboard-mobile-drawer > div:last-child button {
+  color: #526176 !important;
+}
+
+.dashboard-mobile-drawer > div:last-child button:hover {
+  color: #1e293b !important;
+  background: #eff6ff;
 }
 
 .dashboard-header {
@@ -574,6 +597,19 @@ button {
   color: #cbd5e1;
 }
 
+.theme-dark .dashboard-nav-item.bg-blue-600 {
+  color: #ffffff !important;
+}
+
+.theme-dark .dashboard-sidebar > .mt-auto > button {
+  color: #cbd5e1 !important;
+}
+
+.theme-dark .dashboard-sidebar > .mt-auto > button:hover {
+  color: #f8fafc !important;
+  background: rgba(148, 163, 184, 0.1);
+}
+
 .theme-dark .dashboard-nav-item:hover:not(.bg-blue-600) {
   color: #f8fafc;
   background: rgba(148, 163, 184, 0.1);
@@ -744,6 +780,19 @@ button {
   color: #dbeafe;
 }
 
+.theme-night .dashboard-nav-item.bg-blue-600 {
+  color: #ffffff !important;
+}
+
+.theme-night .dashboard-sidebar > .mt-auto > button {
+  color: #dbeafe !important;
+}
+
+.theme-night .dashboard-sidebar > .mt-auto > button:hover {
+  color: #ffffff !important;
+  background: rgba(59, 130, 246, 0.13);
+}
+
 .theme-night .dashboard-nav-item:hover:not(.bg-blue-600) {
   color: #fff;
   background: rgba(59, 130, 246, 0.13);
@@ -779,6 +828,14 @@ button {
   color: #cbd5e1;
 }
 
+.theme-dark .dashboard-mobile-drawer .dashboard-nav-item.bg-blue-600 {
+  color: #ffffff !important;
+}
+
+.theme-dark .dashboard-mobile-drawer > div:last-child button {
+  color: #cbd5e1 !important;
+}
+
 .theme-dark .dashboard-mobile-drawer .dashboard-nav-item:hover:not(.bg-blue-600) {
   color: #f8fafc;
   background: rgba(148, 163, 184, 0.1);
@@ -799,6 +856,14 @@ button {
 
 .theme-night .dashboard-mobile-drawer .dashboard-nav-item {
   color: #dbeafe;
+}
+
+.theme-night .dashboard-mobile-drawer .dashboard-nav-item.bg-blue-600 {
+  color: #ffffff !important;
+}
+
+.theme-night .dashboard-mobile-drawer > div:last-child button {
+  color: #dbeafe !important;
 }
 
 .theme-night .dashboard-mobile-drawer .dashboard-nav-item:hover:not(.bg-blue-600) {
