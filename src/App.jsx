@@ -793,7 +793,7 @@ function AdminUsers() {
 function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
-  const [searchField, setSearchField] = useState("name");
+  const [searchField, setSearchField] = useState("auto");
   const [nextCursor, setNextCursor] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -807,9 +807,17 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
   const [activeView, setActiveView] = useState("Dashboard");
   const [appearanceOpen, setAppearanceOpen] = useState(false);
 
+  const resolveSearchField = (query) =>
+    searchField === "auto"
+      ? /\p{L}/u.test(query)
+        ? "name"
+        : "phone"
+      : searchField;
+
   const searchCustomers = async ({ cursor = null, append = false, signal } = {}) => {
     const query = search.trim();
-    const minimumLength = searchField === "phone" ? 3 : 2;
+    const resolvedField = resolveSearchField(query);
+    const minimumLength = resolvedField === "phone" ? 3 : 2;
     if (query.length < minimumLength) {
       setCustomers([]);
       setNextCursor(null);
@@ -824,7 +832,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
     if (demoMode) {
       const normalizedPhone = query.replace(/\D/g, "");
       const matches = DEMO_CUSTOMERS.filter((customer) =>
-        searchField === "phone"
+        resolvedField === "phone"
           ? String(customer.phone || "").replace(/\D/g, "").startsWith(normalizedPhone)
           : String(customer.name || "").toLowerCase().includes(query.toLowerCase())
       );
@@ -863,7 +871,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
   };
 
   useEffect(() => {
-    const minimumLength = searchField === "phone" ? 3 : 2;
+    const minimumLength = resolveSearchField(search.trim()) === "phone" ? 3 : 2;
     if (search.trim().length < minimumLength) {
       setCustomers([]);
       setNextCursor(null);
@@ -1172,6 +1180,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                   onChange={(event) => setSearchField(event.target.value)}
                   className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
                 >
+                  <option value="auto">Name or phone</option>
                   <option value="name">Customer name</option>
                   <option value="phone">Phone number</option>
                 </select>
@@ -1182,7 +1191,13 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                   onChange={(e) => setSearch(e.target.value)}
                   inputMode={searchField === "phone" ? "tel" : "search"}
                   autoComplete="off"
-                  placeholder={searchField === "phone" ? "Enter at least 3 digits" : "Enter at least 2 characters"}
+                  placeholder={
+                    searchField === "auto"
+                      ? "Search by name or phone"
+                      : searchField === "phone"
+                        ? "Enter at least 3 digits"
+                        : "Enter at least 2 characters"
+                  }
                   className="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 sm:w-72"
                 />
 
