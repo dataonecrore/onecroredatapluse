@@ -875,12 +875,9 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
                     <thead className="bg-slate-50">
                       <tr>
                         {[
-                          "Customer",
-                          "Company",
-                          "Phone",
-                          "Status",
-                          "Created",
-                          "Action",
+                          "Customer Name",
+                          "Customer Number",
+                          "Customer Address",
                         ].map((heading) => (
                           <th
                             key={heading}
@@ -897,51 +894,28 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
                         <tr key={customer.id} className="transition hover:bg-slate-50">
                           <td className="px-5 py-4">
                             <p className="font-semibold text-slate-900">{customer.name}</p>
-                            <p className="text-sm text-slate-500">{customer.email}</p>
+                            <div className="mt-1 flex gap-3">
+                              <button
+                                onClick={() => setSelectedCustomer(customer)}
+                                className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => openEditCustomer(customer)}
+                                className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+                              >
+                                Edit
+                              </button>
+                            </div>
                           </td>
 
                           <td className="px-5 py-4 text-sm text-slate-600">
-                            {customer.company || "-"}
+                            {customer.id || "-"}
                           </td>
 
                           <td className="px-5 py-4 text-sm text-slate-600">
-                            {customer.phone || "-"}
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                                customer.status === "Active"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : customer.status === "Follow-up"
-                                    ? "bg-amber-50 text-amber-700"
-                                    : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {customer.status}
-                            </span>
-                          </td>
-
-                          <td className="px-5 py-4 text-sm text-slate-600">
-                            {customer.created_at
-                              ? new Date(customer.created_at).toLocaleDateString()
-                              : "-"}
-                          </td>
-
-                          <td className="px-5 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() => setSelectedCustomer(customer)}
-                              className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-                            >
-                              View
-                            </button>
-
-                            <button
-                              onClick={() => openEditCustomer(customer)}
-                              className="ml-4 text-sm font-semibold text-slate-600 hover:text-slate-900"
-                            >
-                              Edit
-                            </button>
+                            {customer.address || "-"}
                           </td>
                         </tr>
                       ))}
@@ -976,18 +950,12 @@ function Dashboard({ onLogout, isDark, onToggleTheme }) {
 
                       <div className="mt-3 space-y-1 text-sm text-slate-600">
                         <p>
-                          <span className="font-medium text-slate-700">Company:</span>{" "}
-                          {customer.company || "-"}
+                          <span className="font-medium text-slate-700">Customer Number:</span>{" "}
+                          {customer.id || "-"}
                         </p>
                         <p>
-                          <span className="font-medium text-slate-700">Phone:</span>{" "}
-                          {customer.phone || "-"}
-                        </p>
-                        <p>
-                          <span className="font-medium text-slate-700">Created:</span>{" "}
-                          {customer.created_at
-                            ? new Date(customer.created_at).toLocaleDateString()
-                            : "-"}
+                          <span className="font-medium text-slate-700">Customer Address:</span>{" "}
+                          {customer.address || "-"}
                         </p>
                       </div>
 
