@@ -234,6 +234,7 @@ button {
 }
 
 .dashboard-sidebar .dashboard-nav {
+  flex: 0 0 auto;
   min-height: 0;
   overflow: visible;
 }
