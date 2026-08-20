@@ -319,6 +319,11 @@ def password_reset(payload: PasswordResetRequest):
         json={"email": payload.email, "redirect_to": FRONTEND_URL},
         timeout=10,
     )
+    if response.status_code == 429:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many recovery emails were requested. Please wait before trying again.",
+        )
     if response.status_code not in (200, 204):
         raise HTTPException(status_code=400, detail="Unable to start password recovery.")
     return {"message": "If that account exists, password recovery instructions have been sent."}
