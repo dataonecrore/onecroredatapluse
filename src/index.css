@@ -244,6 +244,9 @@ button {
 }
 
 .dashboard-sidebar > div:first-child {
+  display: flex;
+  min-height: 104px;
+  align-items: center;
   border-color: #e8edf5 !important;
 }
 
