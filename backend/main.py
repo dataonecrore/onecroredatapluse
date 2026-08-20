@@ -28,6 +28,7 @@ if not SUPABASE_KEY:
 
 REST_URL = f"{SUPABASE_URL}/rest/v1"
 AUTH_URL = f"{SUPABASE_URL}/auth/v1"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://onecroredatapluse.vercel.app").rstrip("/")
 ADMIN_EMAILS = {
     email.strip().lower()
     for email in (
@@ -102,6 +103,11 @@ class SignupRequest(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
+
+
+class PasswordUpdateRequest(BaseModel):
+    access_token: str
+    password: str
 
 
 class InviteRequest(BaseModel):
@@ -208,12 +214,28 @@ def password_reset(payload: PasswordResetRequest):
     response = requests.post(
         f"{AUTH_URL}/recover",
         headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
-        json={"email": payload.email},
+        json={"email": payload.email, "redirect_to": FRONTEND_URL},
         timeout=10,
     )
     if response.status_code not in (200, 204):
         raise HTTPException(status_code=400, detail="Unable to start password recovery.")
     return {"message": "If that account exists, password recovery instructions have been sent."}
+
+
+@app.post("/auth/password-update")
+def password_update(payload: PasswordUpdateRequest):
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+
+    response = requests.put(
+        f"{AUTH_URL}/user",
+        headers=auth_headers(payload.access_token) | {"Content-Type": "application/json"},
+        json={"password": payload.password},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Unable to update password. The recovery link may have expired.")
+    return {"message": "Password updated. You can sign in now."}
 
 
 @app.get("/auth/users")

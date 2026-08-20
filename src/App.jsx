@@ -174,6 +174,66 @@ function Login({ onLogin }) {
   );
 }
 
+function PasswordRecovery({ accessToken, onComplete }) {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const updatePassword = async (event) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (password !== confirmation) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/password-update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: accessToken, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to update password.");
+      setMessage(data.message);
+      setPassword("");
+      setConfirmation("");
+    } catch (updateError) {
+      setError(updateError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="login-page flex min-h-screen items-center justify-center px-3 py-4 sm:px-6 lg:px-8">
+      <div className="login-form-panel w-full max-w-xl rounded-[28px] px-6 py-10 shadow-2xl sm:px-12">
+        <p className="text-sm font-bold uppercase tracking-[0.24em] text-blue-600">Account recovery</p>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950">Set a new password</h1>
+        <p className="mt-4 text-base text-slate-500">Choose a new password for your OneCrore CRM account.</p>
+        <form className="mt-8 space-y-5" onSubmit={updatePassword}>
+          <div className="login-input-wrap"><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="New password" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /></div>
+          <div className="login-input-wrap"><input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Confirm new password" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /></div>
+          {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+          {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>}
+          <button type="submit" disabled={saving} className="login-submit w-full rounded-xl px-4 py-3.5 font-semibold text-white disabled:opacity-60">{saving ? "Updating..." : "Update password"}</button>
+          {message && <button type="button" onClick={onComplete} className="w-full font-semibold text-blue-600">Return to sign in</button>}
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function CustomerForm({ customer, onSave, onCancel, saving }) {
   const [form, setForm] = useState(
     customer || {
@@ -1150,6 +1210,10 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin }) {
 function App() {
   const [loggedIn, setLoggedIn] = useState(Boolean(authToken));
   const [isAdmin, setIsAdmin] = useState(false);
+  const [recoveryToken, setRecoveryToken] = useState(() => {
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    return hash.get("type") === "recovery" ? hash.get("access_token") : "";
+  });
   const [theme, setTheme] = useState(() => localStorage.getItem("onecrore-theme") || "light");
 
   useEffect(() => {
@@ -1165,6 +1229,18 @@ function App() {
       else if (response.ok) setIsAdmin(true);
     }).catch(() => undefined);
   }, []);
+
+  if (recoveryToken) {
+    return (
+      <PasswordRecovery
+        accessToken={recoveryToken}
+        onComplete={() => {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setRecoveryToken("");
+        }}
+      />
+    );
+  }
 
   return loggedIn ? (
     <Dashboard
