@@ -37,6 +37,8 @@ The customer screen searches Supabase through the authenticated FastAPI backend.
 
 Apply the migration in `supabase/migrations` before deploying the matching backend and frontend. The browser importer is for small validation batches only; do not use it for the 10-million-row production load.
 
+The production-scale CSV importer is documented in [`docs/BULK_CUSTOMER_IMPORT_RUNBOOK.md`](docs/BULK_CUSTOMER_IMPORT_RUNBOOK.md). It uses a direct Postgres connection, bounded `COPY` batches, SHA-256 file verification, resumable checkpoints, and explicit duplicate handling. Do not apply its migration or run a production import until the source headers and duplicate-phone rule have been confirmed.
+
 The first administrator must be listed in `ADMIN_EMAILS`. After signing in, an admin can open **Settings** to invite users and assign `user` or `admin` roles. Invitations are sent by Supabase Auth; users must complete the invitation flow before signing in.
 
 Users may also choose **Create one** on the login screen. Self-registered accounts are always regular users and can sign in immediately without email confirmation.
