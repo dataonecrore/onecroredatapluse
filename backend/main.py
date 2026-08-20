@@ -100,6 +100,10 @@ class SignupRequest(BaseModel):
     name: str
 
 
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
 class InviteRequest(BaseModel):
     email: EmailStr
     role: str = "user"
@@ -197,6 +201,19 @@ def signup(payload: SignupRequest):
         raise HTTPException(status_code=response.status_code, detail=detail)
 
     return {"message": "Account created. You can sign in now."}
+
+
+@app.post("/auth/password-reset")
+def password_reset(payload: PasswordResetRequest):
+    response = requests.post(
+        f"{AUTH_URL}/recover",
+        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+        json={"email": payload.email},
+        timeout=10,
+    )
+    if response.status_code not in (200, 204):
+        raise HTTPException(status_code=400, detail="Unable to start password recovery.")
+    return {"message": "If that account exists, password recovery instructions have been sent."}
 
 
 @app.get("/auth/users")

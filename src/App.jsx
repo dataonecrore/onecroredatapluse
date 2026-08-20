@@ -33,6 +33,7 @@ function Login({ onLogin }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -67,6 +68,33 @@ function Login({ onLogin }) {
       onLogin(data.user);
     } catch (loginError) {
       setError(loginError.message || "Unable to sign in.");
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email.trim()) {
+      setError("Enter your email address first.");
+      setMessage("");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setResettingPassword(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to start password recovery.");
+      setMessage(data.message);
+    } catch (resetError) {
+      setError(resetError.message);
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -129,7 +157,7 @@ function Login({ onLogin }) {
                 <div className="login-input-wrap mt-2"><span aria-hidden="true">✉</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /></div>
               </div>
               <div>
-                <div className="flex items-center justify-between gap-3"><label className="block text-sm font-semibold text-slate-700">Password</label><button type="button" className="text-sm font-semibold text-blue-600 hover:text-blue-700">Forgot password?</button></div>
+                <div className="flex items-center justify-between gap-3"><label className="block text-sm font-semibold text-slate-700">Password</label>{!isSignup && <button type="button" onClick={handlePasswordReset} disabled={resettingPassword} className="text-sm font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-50">{resettingPassword ? "Sending..." : "Forgot password?"}</button>}</div>
                 <div className="login-input-wrap mt-2"><span aria-hidden="true">♙</span><input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" className="w-full border-0 bg-transparent px-3 py-3.5 outline-none" /><button type="button" onClick={() => setShowPassword((value) => !value)} className="px-2 text-slate-500 hover:text-slate-800">{showPassword ? "Hide" : "◉"}</button></div>
               </div>
               {!isSignup && <label className="flex items-center gap-3 text-sm text-slate-600"><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 accent-blue-600" />Remember me</label>}
