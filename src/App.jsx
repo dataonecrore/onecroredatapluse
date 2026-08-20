@@ -712,12 +712,19 @@ function AdminUsers() {
   const [role, setRole] = useState("user");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const loadUsers = async () => {
-    const response = await apiFetch(`${API_BASE_URL}/auth/users`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Unable to load users.");
-    setUsers(data);
+    setLoading(true);
+    setError("");
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/auth/users`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to load registered customers.");
+      setUsers(data);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -763,8 +770,8 @@ function AdminUsers() {
   return (
     <div className="dashboard-customers overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-5">
-        <h2 className="text-2xl font-bold text-slate-950">User Access</h2>
-        <p className="mt-1 text-sm text-slate-500">Invite users and control access to customer data.</p>
+        <h2 className="text-2xl font-bold text-slate-950">Registered Customers</h2>
+        <p className="mt-1 text-sm text-slate-500">View people registered on this application and manage their access.</p>
       </div>
       <form onSubmit={inviteUser} className="flex flex-col gap-3 border-b border-slate-200 p-5 sm:flex-row">
         <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="user@company.com" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-600" />
@@ -774,11 +781,24 @@ function AdminUsers() {
         </select>
         <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Invite User</button>
       </form>
-      {(message || error) && <p className={`px-5 py-3 text-sm ${error ? "text-red-600" : "text-emerald-600"}`}>{error || message}</p>}
+      {(message || error) && (
+        <div className={`flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm ${error ? "text-red-600" : "text-emerald-600"}`}>
+          <p>{error || message}</p>
+          {error && <button type="button" onClick={() => loadUsers().catch((loadError) => setError(loadError.message))} className="font-semibold underline">Retry</button>}
+        </div>
+      )}
       <div className="divide-y divide-slate-100">
-        {users.map((user) => (
+        {loading && <p className="px-5 py-10 text-center text-sm text-slate-500">Loading registered customers...</p>}
+        {!loading && !error && users.length === 0 && <p className="px-5 py-10 text-center text-sm text-slate-500">No registered customers found.</p>}
+        {!loading && users.map((user) => (
           <div key={user.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-medium text-slate-900">{user.email}</span>
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-900">{user.name || "Name not provided"}</p>
+              <p className="break-all text-sm text-slate-500">{user.email}</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Registered {user.created_at ? new Date(user.created_at).toLocaleString() : "date unavailable"}
+              </p>
+            </div>
             <select value={user.role} onChange={(event) => updateRole(user.id, event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-32">
               <option value="user">User</option>
               <option value="admin">Admin</option>
@@ -980,12 +1000,11 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
       ]
     : [
         ["Dashboard", "▦"],
-        ["Customers", "♧"],
         ["Follow-ups", "□"],
         ["Reports", "▥"],
       ];
 
-  const isCustomerSearchView = activeView === "Dashboard" || activeView === "Customers";
+  const isCustomerSearchView = activeView === "Dashboard";
 
   const selectView = (item) => {
     setActiveView(item);
@@ -1149,7 +1168,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
         <div className="dashboard-content p-4 sm:p-6 lg:p-8">
           {activeView === "Import Customers" && isAdmin ? (
             <CustomerImport />
-          ) : activeView === "Settings" && isAdmin ? (
+          ) : activeView === "Customers" && isAdmin ? (
             <AdminUsers />
           ) : isCustomerSearchView ? (
           <>
@@ -1373,10 +1392,13 @@ function App() {
 
   useEffect(() => {
     if (!authToken) return;
-    apiFetch(`${API_BASE_URL}/auth/users`).then((response) => {
-      if (response.status === 403) setIsAdmin(false);
-      else if (response.ok) setIsAdmin(true);
-    }).catch(() => undefined);
+    apiFetch(`${API_BASE_URL}/auth/me`)
+      .then(async (response) => {
+        if (!response.ok) return;
+        const user = await response.json();
+        setIsAdmin(user.role === "admin");
+      })
+      .catch(() => undefined);
   }, []);
 
   if (recoveryToken) {
