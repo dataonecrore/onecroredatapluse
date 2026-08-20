@@ -73,8 +73,8 @@ function Login({ onLogin }) {
 
   if (isRecovery) {
     return (
-      <PasswordRecovery
-        accessToken=""
+      <PasswordRecoveryRequest
+        email={email}
         onBack={() => {
           setIsRecovery(false);
           setError("");
