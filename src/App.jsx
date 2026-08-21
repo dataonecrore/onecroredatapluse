@@ -1417,6 +1417,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeView, setActiveView] = useState("Dashboard");
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [copiedAddressId, setCopiedAddressId] = useState(null);
 
   const resolveSearchField = (query) =>
     searchField === "auto"
@@ -1607,6 +1608,30 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
   const selectView = (item) => {
     setActiveView(item);
     setMobileMenuOpen(false);
+  };
+
+  const copyAddress = async (customer) => {
+    const address = customer.address?.trim();
+    if (!address) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(address);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = address;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        textArea.remove();
+      }
+      setCopiedAddressId(customer.id);
+      window.setTimeout(() => setCopiedAddressId(null), 1600);
+    } catch {
+      setApiError("Unable to copy the customer address.");
+    }
   };
 
   useEffect(() => {
@@ -1846,7 +1871,20 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                           </td>
 
                           <td className="px-5 py-4 text-sm text-slate-600">
-                            {customer.address || "-"}
+                            <div className="dashboard-address-cell">
+                              <span>{customer.address || "-"}</span>
+                              {customer.address && (
+                                <button
+                                  type="button"
+                                  className="dashboard-copy-button"
+                                  onClick={() => void copyAddress(customer)}
+                                  aria-label={`Copy address for ${customer.name}`}
+                                  title="Copy address"
+                                >
+                                  {copiedAddressId === customer.id ? "Copied" : "⧉"}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1873,9 +1911,19 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                           <span className="font-medium text-slate-700">Customer Number:</span>{" "}
                           {customer.phone || "-"}
                         </p>
-                        <p>
-                          <span className="font-medium text-slate-700">Customer Address:</span>{" "}
-                          {customer.address || "-"}
+                        <p className="dashboard-address-cell">
+                          <span><span className="font-medium text-slate-700">Customer Address:</span>{" "}{customer.address || "-"}</span>
+                          {customer.address && (
+                            <button
+                              type="button"
+                              className="dashboard-copy-button"
+                              onClick={() => void copyAddress(customer)}
+                              aria-label={`Copy address for ${customer.name}`}
+                              title="Copy address"
+                            >
+                              {copiedAddressId === customer.id ? "Copied" : "⧉"}
+                            </button>
+                          )}
                         </p>
                       </div>
 
