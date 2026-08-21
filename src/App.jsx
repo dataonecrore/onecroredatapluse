@@ -709,6 +709,7 @@ function CustomerImport() {
 
 function AdminUsers() {
   const [users, setUsers] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("user");
   const [message, setMessage] = useState("");
@@ -716,22 +717,43 @@ function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [deletingUserId, setDeletingUserId] = useState("");
 
-  const loadUsers = async () => {
+  const loadUsers = async (query = userSearch, signal) => {
     setLoading(true);
     setError("");
     try {
-      const response = await apiFetch(`${API_BASE_URL}/auth/users`);
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
+      const url = `${API_BASE_URL}/auth/users${params.size ? `?${params}` : ""}`;
+      const response = await apiFetch(url, { signal });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Unable to load registered customers.");
       setUsers(data);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadUsers().catch((loadError) => setError(loadError.message));
-  }, []);
+    const query = userSearch.trim();
+    if (query && query.length < 2) {
+      setUsers([]);
+      setError("");
+      setLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      loadUsers(query, controller.signal).catch((loadError) => {
+        if (loadError.name !== "AbortError") setError(loadError.message);
+      });
+    }, query ? 300 : 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [userSearch]);
 
   const inviteUser = async (event) => {
     event.preventDefault();
@@ -747,7 +769,7 @@ function AdminUsers() {
       if (!response.ok) throw new Error(data.detail || "Unable to send invitation.");
       setEmail("");
       setMessage(data.message || `Invitation sent to ${data.email}.`);
-      await loadUsers();
+      await loadUsers(userSearch);
     } catch (inviteError) {
       setError(inviteError.message);
     }
@@ -810,15 +832,49 @@ function AdminUsers() {
         </select>
         <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Invite User</button>
       </form>
+      <div className="border-b border-slate-200 p-5">
+        <label htmlFor="registered-customer-search" className="mb-2 block text-sm font-semibold text-slate-700">
+          Search registered customers
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            id="registered-customer-search"
+            type="search"
+            value={userSearch}
+            onChange={(event) => setUserSearch(event.target.value)}
+            placeholder="Search by name or email"
+            autoComplete="off"
+            className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-600"
+          />
+          {userSearch && (
+            <button
+              type="button"
+              onClick={() => setUserSearch("")}
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-slate-500">Enter at least 2 characters. Search matches customer names and email addresses.</p>
+      </div>
       {(message || error) && (
         <div className={`flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm ${error ? "text-red-600" : "text-emerald-600"}`}>
           <p>{error || message}</p>
-          {error && <button type="button" onClick={() => loadUsers().catch((loadError) => setError(loadError.message))} className="font-semibold underline">Retry</button>}
+          {error && <button type="button" onClick={() => loadUsers(userSearch).catch((loadError) => setError(loadError.message))} className="font-semibold underline">Retry</button>}
         </div>
       )}
       <div className="divide-y divide-slate-100">
         {loading && <p className="px-5 py-10 text-center text-sm text-slate-500">Loading registered customers...</p>}
-        {!loading && !error && users.length === 0 && <p className="px-5 py-10 text-center text-sm text-slate-500">No registered customers found.</p>}
+        {!loading && !error && users.length === 0 && (
+          <p className="px-5 py-10 text-center text-sm text-slate-500">
+            {userSearch.trim().length === 1
+              ? "Enter at least 2 characters to search."
+              : userSearch.trim()
+                ? `No registered customers match “${userSearch.trim()}”.`
+                : "No registered customers found."}
+          </p>
+        )}
         {!loading && users.map((user) => (
           <div key={user.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">

@@ -2,6 +2,8 @@ import os
 import unittest
 from unittest.mock import patch
 
+from fastapi import HTTPException
+
 
 os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
 os.environ.setdefault("SUPABASE_KEY", "test-service-key")
@@ -26,6 +28,17 @@ class FakeResponse:
                 }
             ]
         }
+
+
+class FakeUsersResponse:
+    status_code = 200
+    text = ""
+
+    def __init__(self, users):
+        self.users = users
+
+    def json(self):
+        return {"users": self.users}
 
 
 class UserListingTests(unittest.TestCase):
@@ -85,6 +98,55 @@ class UserListingTests(unittest.TestCase):
             request_get.call_args.kwargs["headers"]["Authorization"],
             f"Bearer {main.SUPABASE_KEY}",
         )
+
+    @patch("backend.main.requests.get")
+    def test_admin_searches_name_and_email_across_auth_pages(self, request_get):
+        first_page_users = [
+            {
+                "id": f"user-{index}",
+                "email": f"member{index}@example.com",
+                "user_metadata": {"name": f"Member {index}"},
+                "app_metadata": {"role": "user"},
+            }
+            for index in range(1000)
+        ]
+        matching_user = {
+            "id": "searched-user-id",
+            "email": "customer@example.com",
+            "user_metadata": {"name": "Asha Rao"},
+            "app_metadata": {"role": "user"},
+        }
+        request_get.side_effect = [
+            FakeUsersResponse(first_page_users),
+            FakeUsersResponse([matching_user]),
+        ]
+
+        result = main.list_users(q="ASHA", _={"id": "admin-id", "role": "admin"})
+
+        self.assertEqual([user["id"] for user in result], ["searched-user-id"])
+        self.assertEqual(request_get.call_count, 2)
+        self.assertEqual(
+            request_get.call_args_list[1].kwargs["params"],
+            {"page": 2, "per_page": 1000},
+        )
+
+    def test_registered_user_search_matches_email_case_insensitively(self):
+        self.assertTrue(
+            main.auth_user_matches(
+                {
+                    "email": "Customer@Example.com",
+                    "user_metadata": {"name": "Different Person"},
+                },
+                "customer@example",
+            )
+        )
+
+    def test_registered_user_search_requires_two_characters(self):
+        with self.assertRaises(HTTPException) as context:
+            main.list_users(q="a", _={"id": "admin-id", "role": "admin"})
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("at least 2 characters", context.exception.detail)
 
 
 if __name__ == "__main__":
