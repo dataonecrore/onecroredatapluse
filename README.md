@@ -58,3 +58,17 @@ For production, use `FRONTEND_URL=https://onecroredatapluse.vercel.app`. In Supa
 Apply `supabase/migrations/20260820160010_login_events_reports.sql` before deploying the matching backend. The migration creates an append-only, server-only login event table and an indexed reporting function. RLS is enabled, direct `anon` and `authenticated` access is revoked, and only the backend service role can record and summarize login activity.
 
 Admins can open **Reports** to monitor successful logins for today, this week, this month, or all time. Metrics use the `Asia/Kolkata` timezone and include total logins, unique users, average logins per user, a time-bucket trend, and the latest 25 sign-ins. Tracking starts after the migration and backend are deployed; Supabase Auth does not provide enough history to reconstruct every earlier login.
+
+## Customer follow-ups
+
+Apply `supabase/migrations/20260821035418_create_follow_ups.sql` before deploying
+the matching backend and frontend. The migration creates user-owned follow-up
+tasks linked to customer records, with indexed status/due-date queries and RLS
+ownership policies. Direct browser access remains revoked; FastAPI validates the
+Supabase session and scopes every create, read, update, completion, and delete
+operation to the authenticated user.
+
+The **Follow-ups** workspace supports customer search, scheduling, priority and
+contact-method tracking, notes, upcoming/overdue/completed filters, rescheduling,
+completion/reopening, and deletion. Due dates are sent as timezone-aware values
+and displayed in the user's local browser timezone.

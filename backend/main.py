@@ -163,8 +163,33 @@ class RoleUpdate(BaseModel):
     role: str
 
 
+class FollowUpCreate(BaseModel):
+    customer_id: int
+    subject: str
+    notes: Optional[str] = None
+    due_at: datetime
+    priority: Literal["low", "normal", "high", "urgent"] = "normal"
+    channel: Literal["call", "meeting", "whatsapp", "email", "other"] = "call"
+
+
+class FollowUpUpdate(BaseModel):
+    subject: Optional[str] = None
+    notes: Optional[str] = None
+    due_at: Optional[datetime] = None
+    priority: Optional[Literal["low", "normal", "high", "urgent"]] = None
+    channel: Optional[Literal["call", "meeting", "whatsapp", "email", "other"]] = None
+
+
+class FollowUpStatusUpdate(BaseModel):
+    status: Literal["open", "completed"]
+
+
 CUSTOMER_SEARCH_COLUMNS = (
     "id,customer_code,name,phone,address,email,company,status,created_at,updated_at"
+)
+FOLLOW_UP_SELECT = (
+    "id,user_id,customer_id,subject,notes,due_at,priority,channel,status,"
+    "completed_at,created_at,updated_at,customer:customers(id,name,phone,email,address)"
 )
 
 
@@ -187,6 +212,40 @@ def resolve_search_field(value: str, requested_field: str) -> Literal["name", "p
     if requested_field in {"name", "phone"}:
         return requested_field
     return "name" if any(character.isalpha() for character in value) else "phone"
+
+
+def prepare_follow_up_payload(values: dict) -> dict:
+    payload = dict(values)
+    if "subject" in payload:
+        subject = re.sub(r"\s+", " ", str(payload["subject"] or "")).strip()
+        if not subject:
+            raise HTTPException(status_code=422, detail="Follow-up subject is required.")
+        if len(subject) > 160:
+            raise HTTPException(status_code=422, detail="Follow-up subject must be 160 characters or fewer.")
+        payload["subject"] = subject
+
+    if "notes" in payload:
+        notes = re.sub(r"\s+", " ", str(payload["notes"] or "")).strip()
+        if len(notes) > 5000:
+            raise HTTPException(status_code=422, detail="Follow-up notes must be 5,000 characters or fewer.")
+        payload["notes"] = notes or None
+
+    if "due_at" in payload:
+        due_at = payload["due_at"]
+        if due_at.tzinfo is None or due_at.utcoffset() is None:
+            raise HTTPException(status_code=422, detail="Follow-up due date must include a timezone.")
+        payload["due_at"] = due_at.astimezone(timezone.utc).isoformat()
+
+    return payload
+
+
+def raise_follow_up_api_error(response, fallback: str):
+    if response.status_code == 404 and "follow_ups" in response.text:
+        raise HTTPException(
+            status_code=503,
+            detail="Follow-ups are not configured. Apply the follow-up database migration.",
+        )
+    raise HTTPException(status_code=502, detail=fallback)
 
 
 def auth_headers(token: str):
@@ -831,6 +890,177 @@ def health():
     return {
         "status": "healthy"
     }
+
+
+@app.get("/follow-ups")
+def list_follow_ups(
+    state: Literal["upcoming", "overdue", "completed", "all"] = "upcoming",
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(get_current_user),
+):
+    user_id = user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authenticated user ID is unavailable.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    params = {
+        "select": FOLLOW_UP_SELECT,
+        "user_id": f"eq.{quote(str(user_id), safe='')}",
+        "limit": str(limit + 1),
+        "offset": str(offset),
+    }
+    if state == "upcoming":
+        params.update({"status": "eq.open", "due_at": f"gte.{now}", "order": "due_at.asc,id.asc"})
+    elif state == "overdue":
+        params.update({"status": "eq.open", "due_at": f"lt.{now}", "order": "due_at.asc,id.asc"})
+    elif state == "completed":
+        params.update({"status": "eq.completed", "order": "completed_at.desc,id.desc"})
+    else:
+        params["order"] = "due_at.asc,id.asc"
+
+    response = requests.get(
+        f"{REST_URL}/follow_ups",
+        headers=HEADERS,
+        params=params,
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise_follow_up_api_error(response, "Unable to load follow-ups.")
+
+    rows = response.json()
+    has_more = len(rows) > limit
+    return {
+        "items": rows[:limit],
+        "state": state,
+        "next_offset": offset + limit if has_more else None,
+    }
+
+
+@app.post("/follow-ups", status_code=201)
+def create_follow_up(payload: FollowUpCreate, user: dict = Depends(get_current_user)):
+    user_id = user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authenticated user ID is unavailable.")
+    if payload.customer_id < 1:
+        raise HTTPException(status_code=422, detail="Select a valid customer.")
+
+    customer_response = requests.get(
+        f"{REST_URL}/customers",
+        headers=HEADERS,
+        params={
+            "select": "id,name,phone,email,address",
+            "id": f"eq.{payload.customer_id}",
+            "limit": "1",
+        },
+        timeout=10,
+    )
+    if customer_response.status_code != 200:
+        raise HTTPException(status_code=502, detail="Unable to verify the selected customer.")
+    customers = customer_response.json()
+    if not customers:
+        raise HTTPException(status_code=404, detail="Selected customer was not found.")
+
+    values = prepare_follow_up_payload(payload.model_dump(exclude={"customer_id"}))
+    response = requests.post(
+        f"{REST_URL}/follow_ups",
+        headers=HEADERS,
+        json={
+            **values,
+            "customer_id": payload.customer_id,
+            "user_id": user_id,
+        },
+        timeout=10,
+    )
+    if response.status_code not in (200, 201):
+        raise_follow_up_api_error(response, "Unable to create the follow-up.")
+
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=502, detail="Follow-up was created without a response record.")
+    return {**rows[0], "customer": customers[0]}
+
+
+@app.patch("/follow-ups/{follow_up_id}")
+def update_follow_up(
+    follow_up_id: int,
+    payload: FollowUpUpdate,
+    user: dict = Depends(get_current_user),
+):
+    values = payload.model_dump(exclude_unset=True)
+    if not values:
+        raise HTTPException(status_code=400, detail="No follow-up fields were supplied.")
+    values = prepare_follow_up_payload(values)
+    values["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    response = requests.patch(
+        f"{REST_URL}/follow_ups",
+        headers=HEADERS,
+        params={
+            "id": f"eq.{follow_up_id}",
+            "user_id": f"eq.{quote(str(user.get('id') or ''), safe='')}",
+            "select": FOLLOW_UP_SELECT,
+        },
+        json=values,
+        timeout=10,
+    )
+    if response.status_code not in (200, 204):
+        raise_follow_up_api_error(response, "Unable to update the follow-up.")
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Follow-up not found.")
+    return rows[0]
+
+
+@app.patch("/follow-ups/{follow_up_id}/status")
+def update_follow_up_status(
+    follow_up_id: int,
+    payload: FollowUpStatusUpdate,
+    user: dict = Depends(get_current_user),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    values = {
+        "status": payload.status,
+        "completed_at": now if payload.status == "completed" else None,
+        "updated_at": now,
+    }
+    response = requests.patch(
+        f"{REST_URL}/follow_ups",
+        headers=HEADERS,
+        params={
+            "id": f"eq.{follow_up_id}",
+            "user_id": f"eq.{quote(str(user.get('id') or ''), safe='')}",
+            "select": FOLLOW_UP_SELECT,
+        },
+        json=values,
+        timeout=10,
+    )
+    if response.status_code not in (200, 204):
+        raise_follow_up_api_error(response, "Unable to update follow-up status.")
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Follow-up not found.")
+    return rows[0]
+
+
+@app.delete("/follow-ups/{follow_up_id}")
+def delete_follow_up(follow_up_id: int, user: dict = Depends(get_current_user)):
+    response = requests.delete(
+        f"{REST_URL}/follow_ups",
+        headers=HEADERS,
+        params={
+            "id": f"eq.{follow_up_id}",
+            "user_id": f"eq.{quote(str(user.get('id') or ''), safe='')}",
+            "select": "id",
+        },
+        timeout=10,
+    )
+    if response.status_code not in (200, 204):
+        raise_follow_up_api_error(response, "Unable to delete the follow-up.")
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Follow-up not found.")
+    return {"id": follow_up_id, "message": "Follow-up deleted."}
 
 
 @app.get("/customers")
