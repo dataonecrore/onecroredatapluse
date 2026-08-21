@@ -1,9 +1,11 @@
 import csv
 import os
 import re
+import smtplib
 import uuid
 import logging
 from datetime import datetime, timezone
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Literal, Optional
 from urllib.parse import quote, urlparse
@@ -220,6 +222,14 @@ FOLLOW_UP_SELECT = (
     "completed_at,created_at,updated_at,customer:customers(id,name,phone,email,address)"
 )
 CAMPAIGN_SELECT = "id,user_id,name,channel,audience,message,status,scheduled_at,created_at,updated_at"
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "").strip()
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
+EMAIL_FROM = os.getenv("EMAIL_FROM", SMTP_USER).strip()
 
 
 def normalize_name_query(value: str) -> str:
@@ -1033,7 +1043,7 @@ def health():
 
 
 @app.get("/campaigns")
-def list_campaigns(user: dict = Depends(get_current_user)):
+def list_campaigns(user: dict = Depends(require_admin)):
     user_id = user.get("id")
     response = requests.get(
         f"{REST_URL}/campaigns",
@@ -1055,7 +1065,7 @@ def list_campaigns(user: dict = Depends(get_current_user)):
 def campaign_audience_count(
     channel: Literal["sms", "whatsapp", "email"],
     audience: str = Query("All opted-in customers", max_length=120),
-    _: dict = Depends(get_current_user),
+    _: dict = Depends(require_admin),
 ):
     consent_field = {"sms": "sms_opt_in", "whatsapp": "whatsapp_opt_in", "email": "email_opt_in"}[channel]
     params = {consent_field: "eq.true", "select": "id", "limit": "1"}
@@ -1073,7 +1083,7 @@ def campaign_audience_count(
 
 
 @app.post("/campaigns", status_code=201)
-def create_campaign(payload: CampaignCreate, user: dict = Depends(get_current_user)):
+def create_campaign(payload: CampaignCreate, user: dict = Depends(require_admin)):
     name = payload.name.strip()
     audience = payload.audience.strip()
     message = payload.message.strip()
@@ -1105,6 +1115,84 @@ def create_campaign(payload: CampaignCreate, user: dict = Depends(get_current_us
     if not rows:
         raise HTTPException(status_code=502, detail="Campaign was created without a response record.")
     return rows[0]
+
+
+def _send_twilio_message(destination: str, message: str):
+    response = requests.post(
+        f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json",
+        auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+        data={"From": TWILIO_FROM_NUMBER, "To": destination, "Body": message},
+        timeout=15,
+    )
+    if response.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail="The messaging provider rejected a recipient.")
+
+
+def _send_email(destination: str, subject: str, message: str):
+    email = EmailMessage()
+    email["From"] = EMAIL_FROM
+    email["To"] = destination
+    email["Subject"] = subject
+    email.set_content(message)
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(email)
+
+
+@app.post("/campaigns/{campaign_id}/send")
+def send_campaign(campaign_id: int, user: dict = Depends(require_admin)):
+    campaign_response = requests.get(
+        f"{REST_URL}/campaigns",
+        headers=HEADERS,
+        params={"id": f"eq.{campaign_id}", "user_id": f"eq.{quote(str(user.get('id') or ''), safe='')}", "select": CAMPAIGN_SELECT, "limit": "1"},
+        timeout=10,
+    )
+    if campaign_response.status_code != 200:
+        raise HTTPException(status_code=campaign_response.status_code, detail=campaign_response.text)
+    campaigns = campaign_response.json()
+    if not campaigns:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+    campaign = campaigns[0]
+    provider_ready = (
+        bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER)
+        if campaign["channel"] in {"sms", "whatsapp"}
+        else bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD and EMAIL_FROM)
+    )
+    if not provider_ready:
+        raise HTTPException(status_code=503, detail=f"{campaign['channel'].title()} provider is not configured on the backend.")
+
+    consent_field = {"sms": "sms_opt_in", "whatsapp": "whatsapp_opt_in", "email": "email_opt_in"}[campaign["channel"]]
+    contact_field = {"sms": "phone", "whatsapp": "whatsapp_phone", "email": "email"}[campaign["channel"]]
+    recipients_response = requests.get(
+        f"{REST_URL}/customers",
+        headers=HEADERS,
+        params={consent_field: "eq.true", f"{contact_field}": "not.is.null", "select": contact_field, "limit": "1000"},
+        timeout=10,
+    )
+    if recipients_response.status_code != 200:
+        raise HTTPException(status_code=502, detail="Unable to load opted-in campaign recipients.")
+    recipients = [row.get(contact_field) for row in recipients_response.json() if row.get(contact_field)]
+    if not recipients:
+        raise HTTPException(status_code=422, detail="No opted-in recipients have a contact value for this channel.")
+
+    sent = 0
+    for recipient in recipients:
+        destination = f"whatsapp:{recipient}" if campaign["channel"] == "whatsapp" else recipient
+        if campaign["channel"] in {"sms", "whatsapp"}:
+            _send_twilio_message(destination, campaign["message"])
+        else:
+            _send_email(recipient, campaign["name"], campaign["message"])
+        sent += 1
+
+    requests.patch(
+        f"{REST_URL}/campaigns",
+        headers=HEADERS,
+        params={"id": f"eq.{campaign_id}", "user_id": f"eq.{quote(str(user.get('id') or ''), safe='')}"},
+        json={"status": "sent", "updated_at": datetime.now(timezone.utc).isoformat()},
+        timeout=10,
+    )
+    return {"id": campaign_id, "status": "sent", "sent": sent}
 
 
 @app.get("/follow-ups")
