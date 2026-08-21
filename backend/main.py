@@ -193,6 +193,14 @@ class FollowUpStatusUpdate(BaseModel):
     status: Literal["open", "completed"]
 
 
+class CampaignCreate(BaseModel):
+    name: str
+    channel: Literal["sms", "whatsapp", "email"]
+    audience: str
+    message: str
+    scheduled_at: Optional[datetime] = None
+
+
 CUSTOMER_SEARCH_COLUMNS = (
     "id,customer_code,name,phone,address,email,company,status,created_at,updated_at"
 )
@@ -200,6 +208,7 @@ FOLLOW_UP_SELECT = (
     "id,user_id,customer_id,subject,notes,due_at,priority,channel,status,"
     "completed_at,created_at,updated_at,customer:customers(id,name,phone,email,address)"
 )
+CAMPAIGN_SELECT = "id,user_id,name,channel,audience,message,status,scheduled_at,created_at,updated_at"
 
 
 def normalize_name_query(value: str) -> str:
@@ -1010,6 +1019,60 @@ def health():
     return {
         "status": "healthy"
     }
+
+
+@app.get("/campaigns")
+def list_campaigns(user: dict = Depends(get_current_user)):
+    user_id = user.get("id")
+    response = requests.get(
+        f"{REST_URL}/campaigns",
+        headers=HEADERS,
+        params={
+            "select": CAMPAIGN_SELECT,
+            "user_id": f"eq.{quote(str(user_id or ''), safe='')}",
+            "order": "created_at.desc,id.desc",
+            "limit": "100",
+        },
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    return {"items": response.json()}
+
+
+@app.post("/campaigns", status_code=201)
+def create_campaign(payload: CampaignCreate, user: dict = Depends(get_current_user)):
+    name = payload.name.strip()
+    audience = payload.audience.strip()
+    message = payload.message.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Campaign name is required.")
+    if not audience:
+        raise HTTPException(status_code=422, detail="Choose an audience.")
+    if not message:
+        raise HTTPException(status_code=422, detail="Campaign message is required.")
+    values = {
+        "user_id": user.get("id"),
+        "name": name,
+        "channel": payload.channel,
+        "audience": audience,
+        "message": message,
+        "scheduled_at": payload.scheduled_at.isoformat() if payload.scheduled_at else None,
+        "status": "draft",
+    }
+    response = requests.post(
+        f"{REST_URL}/campaigns",
+        headers=HEADERS,
+        params={"select": CAMPAIGN_SELECT},
+        json=values,
+        timeout=10,
+    )
+    if response.status_code not in (200, 201):
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=502, detail="Campaign was created without a response record.")
+    return rows[0]
 
 
 @app.get("/follow-ups")

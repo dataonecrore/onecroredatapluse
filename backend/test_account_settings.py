@@ -19,6 +19,45 @@ class FakeResponse:
 
 
 class AccountSettingsTests(unittest.TestCase):
+    @patch("backend.main.requests.get")
+    def test_campaigns_are_listed_for_the_authenticated_workspace(self, request_get):
+        request_get.return_value = FakeResponse([{"id": 4, "name": "Welcome back", "status": "draft"}])
+
+        result = main.list_campaigns({"id": "user-id"})
+
+        self.assertEqual(result["items"][0]["name"], "Welcome back")
+        self.assertEqual(request_get.call_args.kwargs["params"]["user_id"], "eq.user-id")
+
+    @patch("backend.main.requests.post")
+    def test_campaign_creation_trims_fields_and_starts_as_draft(self, request_post):
+        request_post.return_value = FakeResponse(
+            [{"id": 5, "name": "Weekend offer", "status": "draft"}], status_code=201
+        )
+
+        result = main.create_campaign(
+            main.CampaignCreate(
+                name="  Weekend offer  ",
+                channel="whatsapp",
+                audience="  VIP customers ",
+                message="  Come back this weekend.  ",
+            ),
+            {"id": "user-id"},
+        )
+
+        self.assertEqual(result["status"], "draft")
+        self.assertEqual(
+            request_post.call_args.kwargs["json"],
+            {
+                "user_id": "user-id",
+                "name": "Weekend offer",
+                "channel": "whatsapp",
+                "audience": "VIP customers",
+                "message": "Come back this weekend.",
+                "scheduled_at": None,
+                "status": "draft",
+            },
+        )
+
     @patch("backend.main.record_login_event")
     @patch("backend.main.requests.get")
     @patch("backend.main.requests.post")

@@ -1065,6 +1065,96 @@ function Settings({ user, theme, onThemeChange, onUserUpdate, onLogout, demoMode
   );
 }
 
+const MARKETING_PLANS = [
+  ["Starter", "₹999", "Up to 1,000 customers", "CRM, imports, and basic campaigns"],
+  ["Growth", "₹2,999", "Up to 10,000 customers", "Automation, segments, and analytics"],
+  ["Pro", "₹7,999", "Multiple locations", "Advanced workflows and team controls"],
+];
+
+function Campaigns({ demoMode = false }) {
+  const [campaigns, setCampaigns] = useState([]);
+  const [form, setForm] = useState({ name: "", channel: "whatsapp", audience: "All opted-in customers", message: "" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState({ message: "", error: "" });
+
+  const loadCampaigns = async () => {
+    if (demoMode) {
+      setCampaigns([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/campaigns`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to load campaigns.");
+      setCampaigns(data.items || []);
+    } catch (error) {
+      setStatus({ message: "", error: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadCampaigns(); }, [demoMode]);
+
+  const saveCampaign = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setStatus({ message: "", error: "" });
+    if (demoMode) {
+      setStatus({ message: "Campaigns are disabled in demo mode.", error: "" });
+      setSaving(false);
+      return;
+    }
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/campaigns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to save campaign.");
+      setCampaigns((current) => [data, ...current]);
+      setForm({ name: "", channel: "whatsapp", audience: "All opted-in customers", message: "" });
+      setStatus({ message: "Campaign saved as a draft.", error: "" });
+    } catch (error) {
+      setStatus({ message: "", error: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Campaign studio</p>
+        <h2 className="mt-2 text-xl font-bold text-slate-950">Create a campaign</h2>
+        <p className="mt-1 text-sm text-slate-500">Build one reusable campaign workflow for any kind of local business.</p>
+        <form onSubmit={saveCampaign} className="mt-6 space-y-4">
+          <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Campaign name</span><input required maxLength={120} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Weekend customer offer" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600" /></label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Channel</span><select value={form.channel} onChange={(event) => setForm({ ...form, channel: event.target.value })} className="w-full rounded-xl border border-slate-300 px-4 py-3"><option value="whatsapp">WhatsApp</option><option value="sms">SMS</option><option value="email">Email</option></select></label>
+            <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Audience</span><select value={form.audience} onChange={(event) => setForm({ ...form, audience: event.target.value })} className="w-full rounded-xl border border-slate-300 px-4 py-3"><option>All opted-in customers</option><option>New customers</option><option>Repeat customers</option><option>Inactive customers</option><option>VIP customers</option></select></label>
+          </div>
+          <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Message</span><textarea required maxLength={2000} rows={5} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} placeholder="Write the message your customers will receive..." className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600" /></label>
+          {(status.message || status.error) && <p aria-live="polite" className={`text-sm ${status.error ? "text-red-600" : "text-emerald-600"}`}>{status.error || status.message}</p>}
+          <button type="submit" disabled={saving || demoMode} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Saving..." : "Save draft"}</button>
+        </form>
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Campaigns</p><h2 className="mt-2 text-xl font-bold text-slate-950">Your workspace</h2></div><span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Drafts only</span></div>
+        <p className="mt-1 text-sm text-slate-500">Delivery integrations and consent checks come before sending.</p>
+        <div className="mt-6 divide-y divide-slate-100">{loading ? <p className="py-8 text-sm text-slate-500">Loading campaigns...</p> : campaigns.length === 0 ? <p className="py-8 text-sm text-slate-500">No campaigns yet. Your saved drafts will appear here.</p> : campaigns.map((campaign) => <div key={campaign.id} className="py-4 first:pt-0"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{campaign.name}</p><p className="mt-1 text-sm text-slate-500">{campaign.audience} · {campaign.channel}</p></div><span className="text-xs font-bold uppercase text-slate-400">{campaign.status}</span></div><p className="mt-2 line-clamp-2 text-sm text-slate-600">{campaign.message}</p></div>)}</div>
+      </section>
+    </div>
+  );
+}
+
+function Plans() {
+  return <div><div className="mb-6"><p className="text-sm text-slate-500">Choose a plan that fits your customer communication volume. Billing activation will be connected before paid checkout.</p></div><div className="grid gap-5 lg:grid-cols-3">{MARKETING_PLANS.map(([name, price, limit, description], index) => <section key={name} className={`rounded-2xl border bg-white p-5 shadow-sm sm:p-6 ${index === 1 ? "border-blue-600 ring-2 ring-blue-100" : "border-slate-200"}`}><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold text-slate-950">{name}</h2>{index === 1 && <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">Recommended</span>}</div><p className="mt-5 text-3xl font-bold text-slate-950">{price}<span className="text-sm font-medium text-slate-500"> / month</span></p><p className="mt-2 font-semibold text-blue-700">{limit}</p><p className="mt-3 min-h-12 text-sm leading-6 text-slate-500">{description}</p><button type="button" disabled className="mt-6 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-500">Coming soon</button></section>)}</div></div>;
+}
+
 const LOGIN_REPORT_PERIODS = [
   ["daily", "Today"],
   ["weekly", "This week"],
@@ -1396,6 +1486,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
         ["Import Customers", "☁"],
         ["Follow-ups", "□"],
         ["Reports", "▥"],
+        ["Campaigns", "✦"],
+        ["Plans", "◇"],
         ["Settings", "⚙"],
       ]
     : [
@@ -1417,6 +1509,12 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
     setActiveView(item);
     setMobileMenuOpen(false);
   };
+
+  useEffect(() => {
+    if (!isAdmin && (activeView === "Campaigns" || activeView === "Plans")) {
+      setActiveView("Dashboard");
+    }
+  }, [activeView, isAdmin]);
 
   return (
     <div className="dashboard-shell min-h-screen bg-slate-100">
@@ -1575,6 +1673,10 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
             <AdminUsers />
           ) : activeView === "Reports" && isAdmin ? (
             <LoginReports />
+          ) : activeView === "Campaigns" && isAdmin ? (
+            <Campaigns demoMode={demoMode} />
+          ) : activeView === "Plans" && isAdmin ? (
+            <Plans />
           ) : activeView === "Settings" ? (
             <Settings user={user} theme={theme} onThemeChange={onThemeChange} onUserUpdate={onUserUpdate} onLogout={onLogout} demoMode={demoMode} />
           ) : activeView === "Follow-ups" ? (
