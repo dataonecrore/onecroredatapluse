@@ -61,7 +61,7 @@ Admins can open **Reports** to monitor successful logins for today, this week, t
 
 ## Customer follow-ups
 
-Apply `supabase/migrations/20260821035418_create_follow_ups.sql` before deploying
+Apply `supabase/migrations/20260821041254_create_follow_ups.sql` before deploying
 the matching backend and frontend. The migration creates user-owned follow-up
 tasks linked to customer records, with indexed status/due-date queries and RLS
 ownership policies. Direct browser access remains revoked; FastAPI validates the
