@@ -204,6 +204,11 @@ def resolve_user_role(user: dict) -> str:
     return role if role in {"admin", "user"} else "user"
 
 
+def get_user_name(user: dict) -> str:
+    metadata = user.get("user_metadata") or user.get("raw_user_meta_data") or {}
+    return str(metadata.get("name") or "").strip()
+
+
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
     if not credentials:
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -240,7 +245,7 @@ def record_login_event(user: dict) -> bool:
             json={
                 "user_id": user_id,
                 "user_email": email,
-                "user_name": (user.get("user_metadata") or {}).get("name"),
+                "user_name": get_user_name(user) or None,
             },
             timeout=5,
         )
@@ -287,6 +292,10 @@ def signup(payload: SignupRequest):
     if len(payload.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
 
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required.")
+
     response = requests.post(
         f"{AUTH_URL}/admin/users",
         headers=HEADERS,
@@ -294,7 +303,7 @@ def signup(payload: SignupRequest):
             "email": payload.email,
             "password": payload.password,
             "email_confirm": True,
-            "user_metadata": {"name": payload.name},
+            "user_metadata": {"name": name},
             "app_metadata": {"role": "user"},
         },
         timeout=10,
@@ -307,6 +316,34 @@ def signup(payload: SignupRequest):
             detail = None
         detail = detail or "Unable to create account."
         raise HTTPException(status_code=response.status_code, detail=detail)
+
+    created_user = response.json().get("user") or response.json()
+    user_id = created_user.get("id")
+    if not user_id:
+        raise HTTPException(
+            status_code=502,
+            detail="Account was created, but Supabase did not return a user ID.",
+        )
+
+    # Some Auth deployments accept the metadata in the create request but do
+    # not persist it. Apply and verify it explicitly before reporting success.
+    user_metadata = {**(created_user.get("user_metadata") or {}), "name": name}
+    metadata_response = requests.put(
+        f"{AUTH_URL}/admin/users/{user_id}",
+        headers=HEADERS,
+        json={"user_metadata": user_metadata},
+        timeout=10,
+    )
+    updated_user = (
+        metadata_response.json().get("user") or metadata_response.json()
+        if metadata_response.status_code == 200
+        else {}
+    )
+    if metadata_response.status_code != 200 or get_user_name(updated_user) != name:
+        raise HTTPException(
+            status_code=502,
+            detail="Account was created, but the name could not be saved. Contact an administrator.",
+        )
 
     return {"message": "Account created. You can sign in now."}
 
@@ -358,7 +395,7 @@ def list_users(_: dict = Depends(require_admin)):
     return [
         {
             "id": user["id"],
-            "name": (user.get("user_metadata") or {}).get("name", ""),
+            "name": get_user_name(user),
             "email": user.get("email"),
             "role": resolve_user_role(user),
             "created_at": user.get("created_at"),
@@ -372,7 +409,7 @@ def list_users(_: dict = Depends(require_admin)):
 def get_auth_user(user: dict = Depends(get_current_user)):
     return {
         "id": user.get("id"),
-        "name": (user.get("user_metadata") or {}).get("name", ""),
+        "name": get_user_name(user),
         "email": user.get("email"),
         "role": user.get("role", "user"),
     }
