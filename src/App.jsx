@@ -298,6 +298,9 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
       phone: "",
       address: "",
       notes: "",
+      sms_opt_in: false,
+      whatsapp_opt_in: false,
+      email_opt_in: false,
     }
   );
 
@@ -414,6 +417,14 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
           </div>
+
+          <fieldset className="rounded-xl border border-slate-200 p-4">
+            <legend className="px-1 text-sm font-semibold text-slate-700">Marketing consent</legend>
+            <p className="mt-1 text-xs text-slate-500">Only selected channels can be used for future campaigns.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              {["sms", "whatsapp", "email"].map((channel) => <label key={channel} className="flex items-center gap-2 text-sm capitalize text-slate-700"><input type="checkbox" checked={Boolean(form[`${channel}_opt_in`])} onChange={(event) => updateField(`${channel}_opt_in`, event.target.checked)} className="h-4 w-4 accent-blue-600" />{channel}</label>)}
+            </div>
+          </fieldset>
 
           {error && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1077,6 +1088,7 @@ function Campaigns({ demoMode = false }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ message: "", error: "" });
+  const [audienceCount, setAudienceCount] = useState(null);
 
   const loadCampaigns = async () => {
     if (demoMode) {
@@ -1097,6 +1109,18 @@ function Campaigns({ demoMode = false }) {
   };
 
   useEffect(() => { void loadCampaigns(); }, [demoMode]);
+
+  useEffect(() => {
+    if (demoMode) return undefined;
+    const params = new URLSearchParams({ channel: form.channel, audience: form.audience });
+    apiFetch(`${API_BASE_URL}/campaigns/audience-count?${params}`)
+      .then(async (response) => {
+        const data = await response.json();
+        if (response.ok) setAudienceCount(data.count);
+      })
+      .catch(() => setAudienceCount(null));
+    return undefined;
+  }, [demoMode, form.channel, form.audience]);
 
   const saveCampaign = async (event) => {
     event.preventDefault();
@@ -1138,6 +1162,7 @@ function Campaigns({ demoMode = false }) {
             <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Audience</span><select value={form.audience} onChange={(event) => setForm({ ...form, audience: event.target.value })} className="w-full rounded-xl border border-slate-300 px-4 py-3"><option>All opted-in customers</option><option>New customers</option><option>Repeat customers</option><option>Inactive customers</option><option>VIP customers</option></select></label>
           </div>
           <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Message</span><textarea required maxLength={2000} rows={5} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} placeholder="Write the message your customers will receive..." className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600" /></label>
+          <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">Eligible audience: <strong>{audienceCount === null ? "checking..." : `${audienceCount} opted-in customer${audienceCount === 1 ? "" : "s"}`}</strong></p>
           {(status.message || status.error) && <p aria-live="polite" className={`text-sm ${status.error ? "text-red-600" : "text-emerald-600"}`}>{status.error || status.message}</p>}
           <button type="submit" disabled={saving || demoMode} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Saving..." : "Save draft"}</button>
         </form>
