@@ -400,6 +400,7 @@ def list_users(_: dict = Depends(require_admin)):
             "role": resolve_user_role(user),
             "created_at": user.get("created_at"),
             "last_sign_in_at": user.get("last_sign_in_at"),
+            "is_current": user["id"] == _.get("id"),
         }
         for user in response.json().get("users", [])
     ]
@@ -558,6 +559,28 @@ def update_user_role(user_id: str, payload: RoleUpdate, _: dict = Depends(requir
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
     return {"id": user_id, "role": payload.role}
+
+
+@app.delete("/auth/users/{user_id}")
+def delete_auth_user(user_id: uuid.UUID, admin: dict = Depends(require_admin)):
+    user_id_string = str(user_id)
+    if user_id_string == admin.get("id"):
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot delete your own administrator account.",
+        )
+
+    response = requests.delete(
+        f"{AUTH_URL}/admin/users/{user_id_string}",
+        headers=HEADERS,
+        timeout=10,
+    )
+    if response.status_code == 404:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if response.status_code not in (200, 204):
+        raise HTTPException(status_code=502, detail="Unable to delete the user account.")
+
+    return {"id": user_id_string, "message": "User account deleted."}
 
 
 def update_import_job(job_id, **updates):

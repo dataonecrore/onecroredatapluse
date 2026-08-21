@@ -713,6 +713,7 @@ function AdminUsers() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deletingUserId, setDeletingUserId] = useState("");
 
   const loadUsers = async () => {
     setLoading(true);
@@ -767,6 +768,33 @@ function AdminUsers() {
     }
   };
 
+  const deleteUser = async (user) => {
+    if (user.is_current) return;
+
+    const userLabel = user.name || user.email;
+    const confirmed = window.confirm(
+      `Permanently delete ${userLabel}? Their account and login history will be removed. They can register again later.`
+    );
+    if (!confirmed) return;
+
+    setDeletingUserId(user.id);
+    setError("");
+    setMessage("");
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/auth/users/${user.id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to delete user.");
+      setUsers((currentUsers) => currentUsers.filter((currentUser) => currentUser.id !== user.id));
+      setMessage(data.message || `${userLabel} was deleted.`);
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete user.");
+    } finally {
+      setDeletingUserId("");
+    }
+  };
+
   return (
     <div className="dashboard-customers overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-5">
@@ -799,10 +827,21 @@ function AdminUsers() {
                 Registered {user.created_at ? new Date(user.created_at).toLocaleString() : "date unavailable"}
               </p>
             </div>
-            <select value={user.role} onChange={(event) => updateRole(user.id, event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-32">
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <select value={user.role} onChange={(event) => updateRole(user.id, event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-32">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => deleteUser(user)}
+                disabled={user.is_current || deletingUserId === user.id}
+                title={user.is_current ? "You cannot delete your own administrator account" : `Delete ${user.name || user.email}`}
+                className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deletingUserId === user.id ? "Deleting..." : user.is_current ? "Current admin" : "Delete"}
+              </button>
+            </div>
           </div>
         ))}
       </div>
