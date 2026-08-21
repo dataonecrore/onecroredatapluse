@@ -1169,6 +1169,20 @@ function Campaigns({ demoMode = false, onAddCustomer }) {
     }
   };
 
+  const sendCampaign = async (campaign) => {
+    if (!window.confirm(`Send this campaign to all opted-in ${campaign.channel} recipients?`)) return;
+    setStatus({ message: "", error: "" });
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/campaigns/${campaign.id}/send`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to send campaign.");
+      setCampaigns((current) => current.map((item) => item.id === campaign.id ? { ...item, status: data.status } : item));
+      setStatus({ message: `Campaign sent to ${data.sent} recipient${data.sent === 1 ? "" : "s"}.`, error: "" });
+    } catch (error) {
+      setStatus({ message: "", error: error.message });
+    }
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -1190,7 +1204,7 @@ function Campaigns({ demoMode = false, onAddCustomer }) {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Campaigns</p><h2 className="mt-2 text-xl font-bold text-slate-950">Your workspace</h2></div><span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Drafts only</span></div>
         <p className="mt-1 text-sm text-slate-500">Delivery integrations and consent checks come before sending.</p>
-        <div className="mt-6 divide-y divide-slate-100">{loading ? <p className="py-8 text-sm text-slate-500">Loading campaigns...</p> : campaigns.length === 0 ? <div className="py-8"><p className="text-sm text-slate-500">No campaigns yet. Your saved drafts will appear here.</p><button type="button" onClick={onAddCustomer} className="mt-5 rounded-xl border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50">Add customer contact</button></div> : campaigns.map((campaign) => <div key={campaign.id} className="py-4 first:pt-0"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{campaign.name}</p><p className="mt-1 text-sm text-slate-500">{campaign.audience} · {campaign.channel}</p></div><span className="text-xs font-bold uppercase text-slate-400">{campaign.status}</span></div><p className="mt-2 line-clamp-2 text-sm text-slate-600">{campaign.message}</p></div>)}</div>
+        <div className="mt-6 divide-y divide-slate-100">{loading ? <p className="py-8 text-sm text-slate-500">Loading campaigns...</p> : campaigns.length === 0 ? <div className="py-8"><p className="text-sm text-slate-500">No campaigns yet. Your saved drafts will appear here.</p><button type="button" onClick={onAddCustomer} className="mt-5 rounded-xl border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50">Add customer contact</button></div> : campaigns.map((campaign) => <div key={campaign.id} className="py-4 first:pt-0"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{campaign.name}</p><p className="mt-1 text-sm text-slate-500">{campaign.audience} · {campaign.channel}</p></div><div className="flex items-center gap-3"><span className="text-xs font-bold uppercase text-slate-400">{campaign.status}</span>{campaign.status === "draft" && <button type="button" onClick={() => void sendCampaign(campaign)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Send bulk</button>}</div></div><p className="mt-2 line-clamp-2 text-sm text-slate-600">{campaign.message}</p></div>)}</div>
       </section>
     </div>
   );
