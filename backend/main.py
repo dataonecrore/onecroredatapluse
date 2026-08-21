@@ -154,6 +154,15 @@ class PasswordUpdateRequest(BaseModel):
     password: str
 
 
+class ProfileUpdateRequest(BaseModel):
+    name: str
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class InviteRequest(BaseModel):
     email: EmailStr
     role: str = "user"
@@ -343,7 +352,15 @@ def login(payload: LoginRequest):
     email = (user.get("email") or "").lower()
     role = resolve_user_role(user)
     record_login_event(user)
-    return {"access_token": session["access_token"], "user": {"email": email, "role": role}}
+    return {
+        "access_token": session["access_token"],
+        "user": {
+            "id": user.get("id"),
+            "name": get_user_name(user),
+            "email": email,
+            "role": role,
+        },
+    }
 
 
 @app.post("/auth/signup", status_code=201)
@@ -502,6 +519,80 @@ def get_auth_user(user: dict = Depends(get_current_user)):
         "email": user.get("email"),
         "role": user.get("role", "user"),
     }
+
+
+@app.patch("/auth/me")
+def update_auth_user_profile(
+    payload: ProfileUpdateRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    user: dict = Depends(get_current_user),
+):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required.")
+    if len(name) > 100:
+        raise HTTPException(status_code=400, detail="Name must be 100 characters or fewer.")
+
+    metadata = {**(user.get("user_metadata") or {}), "name": name}
+    response = requests.put(
+        f"{AUTH_URL}/user",
+        headers=auth_headers(credentials.credentials) | {"Content-Type": "application/json"},
+        json={"data": metadata},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=502, detail="Unable to update your profile.")
+
+    updated_user = response.json().get("user") or response.json()
+    if get_user_name(updated_user) != name:
+        raise HTTPException(status_code=502, detail="Profile updated, but the saved name could not be verified.")
+
+    return {
+        "id": updated_user.get("id") or user.get("id"),
+        "name": name,
+        "email": updated_user.get("email") or user.get("email"),
+        "role": user.get("role", "user"),
+        "message": "Profile updated.",
+    }
+
+
+@app.post("/auth/password-change")
+def change_auth_user_password(
+    payload: PasswordChangeRequest,
+    user: dict = Depends(get_current_user),
+):
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters.")
+    if payload.current_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="Choose a new password that is different from your current password.")
+
+    email = (user.get("email") or "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Your account does not have an email address.")
+
+    login_response = requests.post(
+        f"{AUTH_URL}/token?grant_type=password",
+        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+        json={"email": email, "password": payload.current_password},
+        timeout=10,
+    )
+    if login_response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+
+    fresh_access_token = login_response.json().get("access_token")
+    if not fresh_access_token:
+        raise HTTPException(status_code=502, detail="Unable to verify your current password.")
+
+    update_response = requests.put(
+        f"{AUTH_URL}/user",
+        headers=auth_headers(fresh_access_token) | {"Content-Type": "application/json"},
+        json={"password": payload.new_password},
+        timeout=10,
+    )
+    if update_response.status_code != 200:
+        raise HTTPException(status_code=502, detail="Unable to update your password.")
+
+    return {"message": "Password updated successfully."}
 
 
 @app.get("/reports/login-activity")

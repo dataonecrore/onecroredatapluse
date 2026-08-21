@@ -19,6 +19,11 @@ const DEMO_CUSTOMERS = [
     address: "Demo workspace",
   },
 ];
+const APPEARANCE_OPTIONS = [
+  ["light", "☼", "Light", "Bright and clean"],
+  ["dark", "☾", "Dark", "Neutral charcoal"],
+  ["night", "✧", "Night", "Deep navy"],
+];
 
 let authToken = sessionStorage.getItem("onecrore-access-token") || "";
 
@@ -906,6 +911,160 @@ function AdminUsers() {
   );
 }
 
+function Settings({ user, theme, onThemeChange, onUserUpdate, onLogout, demoMode = false }) {
+  const [name, setName] = useState(user?.name || "");
+  const [profileStatus, setProfileStatus] = useState({ message: "", error: "" });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState({ message: "", error: "" });
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  useEffect(() => setName(user?.name || ""), [user?.name]);
+
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    const nextName = name.trim();
+    if (!nextName) {
+      setProfileStatus({ message: "", error: "Name is required." });
+      return;
+    }
+
+    setSavingProfile(true);
+    setProfileStatus({ message: "", error: "" });
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/auth/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nextName }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to update your profile.");
+      setName(data.name);
+      onUserUpdate(data);
+      setProfileStatus({ message: data.message || "Profile updated.", error: "" });
+    } catch (updateError) {
+      setProfileStatus({ message: "", error: updateError.message || "Unable to update your profile." });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const changePassword = async (event) => {
+    event.preventDefault();
+    setPasswordStatus({ message: "", error: "" });
+    if (newPassword.length < 8) {
+      setPasswordStatus({ message: "", error: "New password must be at least 8 characters." });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordStatus({ message: "", error: "New passwords do not match." });
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/auth/password-change`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to update your password.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordStatus({ message: data.message || "Password updated successfully.", error: "" });
+    } catch (updateError) {
+      setPasswordStatus({ message: "", error: updateError.message || "Unable to update your password." });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const cardClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6";
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-2">
+      {demoMode && (
+        <div className="settings-demo-notice rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800 xl:col-span-2">
+          Profile and password changes are disabled in demo mode. Appearance preferences remain available on this device.
+        </div>
+      )}
+      <section className={cardClass}>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Account</p>
+        <h2 className="mt-2 text-xl font-bold text-slate-950">Profile information</h2>
+        <p className="mt-1 text-sm text-slate-500">Keep your name current across the workspace.</p>
+        <form onSubmit={saveProfile} className="mt-6 space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Display name</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} maxLength={100} autoComplete="name" disabled={demoMode} className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-60" />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Email address</span>
+            <input value={user?.email || "Loading account..."} readOnly className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500" />
+            <span className="mt-2 block text-xs text-slate-500">Contact an administrator if this email needs to change.</span>
+          </label>
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
+            <span className="text-sm text-slate-600">Account role</span>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold capitalize text-blue-700">{user?.role || "user"}</span>
+          </div>
+          {(profileStatus.message || profileStatus.error) && <p aria-live="polite" className={`text-sm ${profileStatus.error ? "text-red-600" : "text-emerald-600"}`}>{profileStatus.error || profileStatus.message}</p>}
+          <button type="submit" disabled={demoMode || savingProfile || !name.trim() || name.trim() === (user?.name || "")} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+            {savingProfile ? "Saving..." : "Save profile"}
+          </button>
+        </form>
+      </section>
+
+      <section className={cardClass}>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Security</p>
+        <h2 className="mt-2 text-xl font-bold text-slate-950">Change password</h2>
+        <p className="mt-1 text-sm text-slate-500">Confirm your current password before choosing a new one.</p>
+        <form onSubmit={changePassword} className="mt-6 space-y-4">
+          {[
+            ["current-password", "Current password", currentPassword, setCurrentPassword, "current-password"],
+            ["new-password", "New password", newPassword, setNewPassword, "new-password"],
+            ["confirm-password", "Confirm new password", confirmPassword, setConfirmPassword, "new-password"],
+          ].map(([id, label, value, setter, autoComplete]) => (
+            <label key={id} htmlFor={id} className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">{label}</span>
+              <input id={id} type="password" value={value} onChange={(event) => setter(event.target.value)} autoComplete={autoComplete} required minLength={id === "current-password" ? undefined : 8} disabled={demoMode} className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-60" />
+            </label>
+          ))}
+          <p className="text-xs text-slate-500">Use at least 8 characters and avoid reusing your current password.</p>
+          {(passwordStatus.message || passwordStatus.error) && <p aria-live="polite" className={`text-sm ${passwordStatus.error ? "text-red-600" : "text-emerald-600"}`}>{passwordStatus.error || passwordStatus.message}</p>}
+          <button type="submit" disabled={demoMode || savingPassword} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+            {savingPassword ? "Updating..." : "Update password"}
+          </button>
+        </form>
+      </section>
+
+      <section className={cardClass}>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Preferences</p>
+        <h2 className="mt-2 text-xl font-bold text-slate-950">Appearance</h2>
+        <p className="mt-1 text-sm text-slate-500">Choose how OneCrore CRM looks on this device.</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {APPEARANCE_OPTIONS.map(([value, icon, label, description]) => (
+            <button key={value} type="button" onClick={() => onThemeChange(value)} aria-pressed={theme === value} className={`settings-appearance-option rounded-xl border p-4 text-left transition ${theme === value ? "settings-appearance-option-active border-blue-600 bg-blue-50 ring-2 ring-blue-100" : "border-slate-200 hover:border-blue-300 hover:bg-slate-50"}`}>
+              <span aria-hidden="true" className="text-lg text-blue-600">{icon}</span>
+              <span className="mt-2 block text-sm font-bold text-slate-900">{label}</span>
+              <span className="mt-1 block text-xs text-slate-500">{description}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className={cardClass}>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Session</p>
+        <h2 className="mt-2 text-xl font-bold text-slate-950">Sign out</h2>
+        <p className="mt-1 text-sm text-slate-500">End your current session on this device.</p>
+        <button type="button" onClick={onLogout} className="mt-6 rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50">Sign out of OneCrore CRM</button>
+      </section>
+    </div>
+  );
+}
+
 const LOGIN_REPORT_PERIODS = [
   ["daily", "Today"],
   ["weekly", "This week"],
@@ -1051,7 +1210,7 @@ function LoginReports() {
   );
 }
 
-function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }) {
+function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate, demoMode = false }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [searchField, setSearchField] = useState("auto");
@@ -1242,9 +1401,17 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
     : [
         ["Dashboard", "▦"],
         ["Follow-ups", "□"],
+        ["Settings", "⚙"],
       ];
 
   const isCustomerSearchView = activeView === "Dashboard";
+  const displayName = user?.name || user?.email || "Your account";
+  const avatarInitials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "U";
 
   const selectView = (item) => {
     setActiveView(item);
@@ -1285,9 +1452,9 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
 
         <div className="mt-auto border-t border-white/10 p-4">
           <div className="dashboard-profile flex items-center gap-3 border-t border-white/10 px-2 py-4">
-            <div className="dashboard-avatar">BT</div>
+            <div className="dashboard-avatar">{avatarInitials}</div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Biksham Tarala</p>
+              <p className="truncate text-sm font-semibold">{displayName}</p>
               <p className="text-xs text-slate-400">{isAdmin ? "Admin" : "User"}</p>
             </div>
             <span className="text-sm" aria-hidden="true">⌄</span>
@@ -1375,11 +1542,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                 {appearanceOpen && (
                   <div className="appearance-popover">
                     <div className="appearance-popover-heading"><p>Appearance</p><span>Choose the interface palette.</span></div>
-                    {[
-                      ["light", "☼", "Light", "Bright and clean"],
-                      ["dark", "☾", "Dark", "Neutral charcoal"],
-                      ["night", "✧", "Night", "Deep navy"],
-                    ].map(([value, icon, label, description]) => (
+                    {APPEARANCE_OPTIONS.map(([value, icon, label, description]) => (
                       <button key={value} type="button" onClick={() => { onThemeChange(value); setAppearanceOpen(false); }} className={`appearance-option ${theme === value ? "appearance-option-active" : ""}`}>
                         <span className="appearance-option-icon">{icon}</span>
                         <span className="appearance-option-copy"><strong>{label}</strong><small>{description}</small></span>
@@ -1412,6 +1575,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
             <AdminUsers />
           ) : activeView === "Reports" && isAdmin ? (
             <LoginReports />
+          ) : activeView === "Settings" ? (
+            <Settings user={user} theme={theme} onThemeChange={onThemeChange} onUserUpdate={onUserUpdate} onLogout={onLogout} demoMode={demoMode} />
           ) : activeView === "Follow-ups" ? (
             <FollowUps apiFetch={apiFetch} apiBaseUrl={API_BASE_URL} demoMode={demoMode} />
           ) : isCustomerSearchView ? (
@@ -1622,6 +1787,9 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
 function App() {
   const [loggedIn, setLoggedIn] = useState(isDemoMode || Boolean(authToken));
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState(
+    isDemoMode ? { name: "Demo User", email: "demo@example.com", role: "user" } : null
+  );
   const [recoveryToken, setRecoveryToken] = useState(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
     return hash.get("type") === "recovery" ? hash.get("access_token") : "";
@@ -1640,6 +1808,7 @@ function App() {
       .then(async (response) => {
         if (!response.ok) return;
         const user = await response.json();
+        setCurrentUser(user);
         setIsAdmin(user.role === "admin");
       })
       .catch(() => undefined);
@@ -1661,18 +1830,24 @@ function App() {
     <Dashboard
       theme={theme}
       isAdmin={isAdmin}
+      user={currentUser}
       demoMode={isDemoMode}
       onThemeChange={setTheme}
+      onUserUpdate={(updatedUser) => {
+        setCurrentUser((existingUser) => ({ ...existingUser, ...updatedUser }));
+      }}
       onLogout={() => {
         setAuthToken("");
         setLoggedIn(false);
         setIsAdmin(false);
+        setCurrentUser(null);
       }}
     />
   ) : (
     <Login
-      onLogin={({ role }) => {
-        setIsAdmin(role === "admin");
+      onLogin={(user) => {
+        setCurrentUser(user);
+        setIsAdmin(user.role === "admin");
         setLoggedIn(true);
       }}
     />
