@@ -441,28 +441,57 @@ def password_update(payload: PasswordUpdateRequest):
     return {"message": "Password updated. You can sign in now."}
 
 
+def serialize_auth_user(user: dict, admin: dict):
+    return {
+        "id": user["id"],
+        "name": get_user_name(user),
+        "email": user.get("email"),
+        "role": resolve_user_role(user),
+        "created_at": user.get("created_at"),
+        "last_sign_in_at": user.get("last_sign_in_at"),
+        "is_current": user["id"] == admin.get("id"),
+    }
+
+
+def auth_user_matches(user: dict, query: str):
+    searchable_values = (get_user_name(user), user.get("email") or "")
+    return any(query in value.casefold() for value in searchable_values)
+
+
 @app.get("/auth/users")
-def list_users(_: dict = Depends(require_admin)):
-    response = requests.get(
-        f"{AUTH_URL}/admin/users",
-        headers=HEADERS,
-        params={"page": 1, "per_page": 1000},
-        timeout=10,
-    )
-    if response.status_code != 200:
-        raise HTTPException(status_code=response.status_code, detail=response.text)
-    return [
-        {
-            "id": user["id"],
-            "name": get_user_name(user),
-            "email": user.get("email"),
-            "role": resolve_user_role(user),
-            "created_at": user.get("created_at"),
-            "last_sign_in_at": user.get("last_sign_in_at"),
-            "is_current": user["id"] == _.get("id"),
-        }
-        for user in response.json().get("users", [])
-    ]
+def list_users(q: str = "", _: dict = Depends(require_admin)):
+    query = q.strip().casefold()
+    if query and len(query) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Enter at least 2 characters to search registered customers.",
+        )
+    if len(query) > 200:
+        raise HTTPException(status_code=400, detail="Search is too long.")
+
+    per_page = 1000
+    search_limit = 100
+    matched_users = []
+
+    for page in range(1, 101):
+        response = requests.get(
+            f"{AUTH_URL}/admin/users",
+            headers=HEADERS,
+            params={"page": page, "per_page": per_page},
+            timeout=10,
+        )
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+        users = response.json().get("users", [])
+        if not query:
+            return [serialize_auth_user(user, _) for user in users]
+
+        matched_users.extend(user for user in users if auth_user_matches(user, query))
+        if len(matched_users) >= search_limit or len(users) < per_page:
+            break
+
+    return [serialize_auth_user(user, _) for user in matched_users[:search_limit]]
 
 
 @app.get("/auth/me")
