@@ -70,12 +70,13 @@ class UserListingTests(unittest.TestCase):
     def test_admin_can_list_registered_users_with_signup_details(self, request_get):
         request_get.return_value = FakeResponse()
 
-        result = main.list_users(_={"role": "admin"})
+        result = main.list_users(_={"id": "registered-user-id", "role": "admin"})
 
         self.assertEqual(result[0]["name"], "Member Name")
         self.assertEqual(result[0]["email"], "member@example.com")
         self.assertEqual(result[0]["role"], "user")
         self.assertEqual(result[0]["created_at"], "2026-08-20T10:00:00Z")
+        self.assertTrue(result[0]["is_current"])
         self.assertEqual(
             request_get.call_args.kwargs["params"],
             {"page": 1, "per_page": 1000},
