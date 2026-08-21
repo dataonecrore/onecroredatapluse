@@ -1,0 +1,138 @@
+import os
+import unittest
+from unittest.mock import patch
+
+
+os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
+os.environ.setdefault("SUPABASE_KEY", "test-service-key")
+
+from backend import main
+
+
+class FakeResponse:
+    def __init__(self, data=None, status_code=200):
+        self._data = data or {}
+        self.status_code = status_code
+
+    def json(self):
+        return self._data
+
+
+class AccountSettingsTests(unittest.TestCase):
+    @patch("backend.main.record_login_event")
+    @patch("backend.main.requests.get")
+    @patch("backend.main.requests.post")
+    def test_login_returns_profile_for_settings_and_sidebar(
+        self, request_post, request_get, record_login_event
+    ):
+        request_post.return_value = FakeResponse({"access_token": "user-token"})
+        request_get.return_value = FakeResponse(
+            {
+                "id": "user-id",
+                "email": "member@example.com",
+                "user_metadata": {"name": "Member Name"},
+                "app_metadata": {"role": "user"},
+            }
+        )
+
+        result = main.login(
+            main.LoginRequest(email="member@example.com", password="password123")
+        )
+
+        self.assertEqual(
+            result["user"],
+            {
+                "id": "user-id",
+                "name": "Member Name",
+                "email": "member@example.com",
+                "role": "user",
+            },
+        )
+        record_login_event.assert_called_once()
+
+    @patch("backend.main.requests.put")
+    def test_authenticated_user_can_update_their_own_name(self, request_put):
+        request_put.return_value = FakeResponse(
+            {
+                "id": "user-id",
+                "email": "member@example.com",
+                "user_metadata": {"name": "Updated Name", "locale": "en"},
+            }
+        )
+
+        result = main.update_auth_user_profile(
+            main.ProfileUpdateRequest(name="  Updated Name  "),
+            credentials=main.HTTPAuthorizationCredentials(
+                scheme="Bearer", credentials="user-token"
+            ),
+            user={
+                "id": "user-id",
+                "email": "member@example.com",
+                "role": "user",
+                "user_metadata": {"name": "Old Name", "locale": "en"},
+            },
+        )
+
+        self.assertEqual(result["name"], "Updated Name")
+        self.assertEqual(
+            request_put.call_args.kwargs["json"],
+            {"data": {"name": "Updated Name", "locale": "en"}},
+        )
+        self.assertEqual(
+            request_put.call_args.kwargs["headers"]["Authorization"],
+            "Bearer user-token",
+        )
+
+    @patch("backend.main.requests.put")
+    @patch("backend.main.requests.post")
+    def test_password_change_reauthenticates_before_updating(
+        self, request_post, request_put
+    ):
+        request_post.return_value = FakeResponse({"access_token": "fresh-token"})
+        request_put.return_value = FakeResponse({"id": "user-id"})
+
+        result = main.change_auth_user_password(
+            main.PasswordChangeRequest(
+                current_password="old-password",
+                new_password="new-password-123",
+            ),
+            user={"id": "user-id", "email": "member@example.com", "role": "user"},
+        )
+
+        self.assertEqual(result["message"], "Password updated successfully.")
+        self.assertEqual(
+            request_post.call_args.kwargs["json"],
+            {"email": "member@example.com", "password": "old-password"},
+        )
+        self.assertEqual(
+            request_put.call_args.kwargs["headers"]["Authorization"],
+            "Bearer fresh-token",
+        )
+        self.assertEqual(
+            request_put.call_args.kwargs["json"],
+            {"password": "new-password-123"},
+        )
+
+    @patch("backend.main.requests.put")
+    @patch("backend.main.requests.post")
+    def test_password_change_rejects_incorrect_current_password(
+        self, request_post, request_put
+    ):
+        request_post.return_value = FakeResponse(status_code=400)
+
+        with self.assertRaises(main.HTTPException) as context:
+            main.change_auth_user_password(
+                main.PasswordChangeRequest(
+                    current_password="wrong-password",
+                    new_password="new-password-123",
+                ),
+                user={"id": "user-id", "email": "member@example.com", "role": "user"},
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertEqual(context.exception.detail, "Current password is incorrect.")
+        request_put.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()
