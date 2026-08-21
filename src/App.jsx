@@ -1184,8 +1184,8 @@ function Campaigns({ demoMode = false, onAddCustomer, onImportCustomers }) {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <div className="campaigns-layout grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <section className="campaigns-panel min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Campaign studio</p>
         <h2 className="mt-2 text-xl font-bold text-slate-950">Create a campaign</h2>
         <p className="mt-1 text-sm text-slate-500">Build one reusable campaign workflow for any kind of local business.</p>
@@ -1201,7 +1201,7 @@ function Campaigns({ demoMode = false, onAddCustomer, onImportCustomers }) {
           <button type="submit" disabled={saving || demoMode} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Saving..." : "Save draft"}</button>
         </form>
       </section>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className="campaigns-panel min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Campaigns</p><h2 className="mt-2 text-xl font-bold text-slate-950">Your workspace</h2></div><span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Drafts only</span></div>
         <p className="mt-1 text-sm text-slate-500">Delivery integrations and consent checks come before sending.</p>
         <div className="mt-6 divide-y divide-slate-100">{loading ? <p className="py-8 text-sm text-slate-500">Loading campaigns...</p> : campaigns.length === 0 ? <div className="py-8"><p className="text-sm text-slate-500">No campaigns yet. Your saved drafts will appear here.</p><div className="mt-5 flex flex-wrap gap-3"><button type="button" onClick={onAddCustomer} className="rounded-xl border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50">Add customer contact</button><button type="button" onClick={onImportCustomers} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Import customers in bulk</button></div></div> : campaigns.map((campaign) => <div key={campaign.id} className="py-4 first:pt-0"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{campaign.name}</p><p className="mt-1 text-sm text-slate-500">{campaign.audience} · {campaign.channel}</p></div><div className="flex items-center gap-3"><span className="text-xs font-bold uppercase text-slate-400">{campaign.status}</span>{campaign.status === "draft" && <button type="button" onClick={() => void sendCampaign(campaign)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Send bulk</button>}</div></div><p className="mt-2 line-clamp-2 text-sm text-slate-600">{campaign.message}</p></div>)}</div>
@@ -1711,7 +1711,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                 )}
               </div>
 
-              {isAdmin && (isCustomerSearchView || activeView === "Campaigns") && <div className="flex flex-wrap justify-end gap-2"><button onClick={openAddCustomer} className="dashboard-add-customer rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm" aria-label="Add customer" title="Add customer">+ Add Customer</button>{activeView === "Campaigns" && <button onClick={() => selectView("Import Customers")} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:px-4 sm:py-2.5 sm:text-sm" aria-label="Import customers in bulk" title="Import customers in bulk">Import in bulk</button>}</div>}
+              {isAdmin && (isCustomerSearchView || activeView === "Campaigns") && <div className="dashboard-header-actions flex flex-wrap justify-end gap-2"><button onClick={openAddCustomer} className="dashboard-add-customer rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm" aria-label="Add customer" title="Add customer">+ Add Customer</button>{activeView === "Campaigns" && <button onClick={() => selectView("Import Customers")} className="dashboard-import-action rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:px-4 sm:py-2.5 sm:text-sm" aria-label="Import customers in bulk" title="Import customers in bulk">Import in bulk</button>}</div>}
             </div>
           </div>
         </header>

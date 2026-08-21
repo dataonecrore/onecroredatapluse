@@ -335,7 +335,22 @@ button {
 }
 
 .dashboard-main {
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
+}
+
+.dashboard-content,
+.dashboard-content > * {
+  min-width: 0;
+}
+
+.campaigns-layout {
+  width: 100%;
+}
+
+.campaigns-panel {
+  overflow: hidden;
 }
 
 .dashboard-mobile-drawer {
@@ -494,6 +509,14 @@ button {
     padding-left: 12px;
   }
 
+  .dashboard-header-actions {
+    max-width: 52vw;
+  }
+
+  .dashboard-header-actions button {
+    max-width: 100%;
+  }
+
   .dashboard-heading {
     max-width: min(48vw, 210px);
   }
@@ -546,6 +569,14 @@ button {
   .dashboard-alert-button {
     width: 100%;
   }
+
+  .campaigns-panel {
+    padding: 16px !important;
+  }
+
+  .campaigns-panel form {
+    min-width: 0;
+  }
 }
 
 @media (max-width: 400px) {
@@ -562,6 +593,19 @@ button {
 
   .dashboard-add-customer::before {
     content: "+";
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .dashboard-header .dashboard-import-action {
+    width: 38px;
+    height: 38px;
+    padding: 0 !important;
+    font-size: 0 !important;
+  }
+
+  .dashboard-import-action::before {
+    content: "↑";
     font-size: 20px;
     line-height: 1;
   }
