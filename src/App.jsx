@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FollowUps } from "./FollowUps";
 
 const PUBLIC_API_BASE_URL = "https://onecroredatapluse-production.up.railway.app";
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -773,7 +774,7 @@ function AdminUsers() {
 
     const userLabel = user.name || user.email;
     const confirmed = window.confirm(
-      `Permanently delete ${userLabel}? Their account and login history will be removed. They can register again later.`
+      `Permanently delete ${userLabel}? Their account, follow-ups, and login history will be removed. They can register again later.`
     );
     if (!confirmed) return;
 
@@ -1137,7 +1138,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
 
   const deleteCustomer = async (customer) => {
     const confirmed = window.confirm(
-      `Delete ${customer.name}? This action cannot be undone.`
+      `Delete ${customer.name}? Their linked follow-ups will also be removed. This action cannot be undone.`
     );
 
     if (!confirmed) return;
@@ -1334,7 +1335,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
                 )}
               </div>
 
-              {isAdmin && (
+              {isAdmin && isCustomerSearchView && (
                 <button
                   onClick={openAddCustomer}
                   className="dashboard-add-customer rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm"
@@ -1355,6 +1356,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, demoMode = false }
             <AdminUsers />
           ) : activeView === "Reports" && isAdmin ? (
             <LoginReports />
+          ) : activeView === "Follow-ups" ? (
+            <FollowUps apiFetch={apiFetch} apiBaseUrl={API_BASE_URL} demoMode={demoMode} />
           ) : isCustomerSearchView ? (
           <>
           {apiError && (
