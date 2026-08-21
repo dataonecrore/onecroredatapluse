@@ -122,6 +122,9 @@ class CustomerCreate(BaseModel):
     company: Optional[str] = None
     status: str = "Active"
     notes: Optional[str] = None
+    sms_opt_in: bool = False
+    whatsapp_opt_in: bool = False
+    email_opt_in: bool = False
 
 
 class CustomerUpdate(BaseModel):
@@ -132,6 +135,9 @@ class CustomerUpdate(BaseModel):
     company: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    sms_opt_in: Optional[bool] = None
+    whatsapp_opt_in: Optional[bool] = None
+    email_opt_in: Optional[bool] = None
 
 
 class LoginRequest(BaseModel):
@@ -1038,6 +1044,27 @@ def list_campaigns(user: dict = Depends(get_current_user)):
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
     return {"items": response.json()}
+
+
+@app.get("/campaigns/audience-count")
+def campaign_audience_count(
+    channel: Literal["sms", "whatsapp", "email"],
+    audience: str = Query("All opted-in customers", max_length=120),
+    _: dict = Depends(get_current_user),
+):
+    consent_field = {"sms": "sms_opt_in", "whatsapp": "whatsapp_opt_in", "email": "email_opt_in"}[channel]
+    params = {consent_field: "eq.true", "select": "id", "limit": "1"}
+    response = requests.get(
+        f"{REST_URL}/customers",
+        headers={**HEADERS, "Prefer": "count=exact"},
+        params=params,
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    content_range = response.headers.get("Content-Range", "*/0")
+    count = int(content_range.split("/")[-1]) if content_range.split("/")[-1].isdigit() else 0
+    return {"channel": channel, "audience": audience, "count": count}
 
 
 @app.post("/campaigns", status_code=201)
