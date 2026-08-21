@@ -296,6 +296,7 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
       name: "",
       email: "",
       phone: "",
+      whatsapp_phone: "",
       address: "",
       notes: "",
       sms_opt_in: false,
@@ -328,8 +329,12 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
         name: form.name,
         email: form.email?.trim() || null,
         phone: form.phone || "",
+        whatsapp_phone: form.whatsapp_phone || "",
         address: form.address || "",
         notes: form.notes || "",
+        sms_opt_in: Boolean(form.sms_opt_in),
+        whatsapp_opt_in: Boolean(form.whatsapp_opt_in),
+        email_opt_in: Boolean(form.email_opt_in),
       });
     } catch (err) {
       setError(err.message || "Unable to save customer.");
@@ -379,7 +384,7 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
 
           <div>
             <label className="text-sm font-semibold text-slate-700">
-              Phone
+              Phone number
             </label>
 
             <input
@@ -387,6 +392,20 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
               value={form.phone || ""}
               onChange={(e) => updateField("phone", e.target.value)}
               placeholder="+91 98765 43210"
+              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-slate-700">
+              WhatsApp number (optional)
+            </label>
+
+            <input
+              type="tel"
+              value={form.whatsapp_phone || ""}
+              onChange={(e) => updateField("whatsapp_phone", e.target.value)}
+              placeholder="Same as phone or another number"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
           </div>
@@ -470,6 +489,7 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
             ["Name", customer.name],
             ["Email", customer.email || "-"],
             ["Phone", customer.phone || "-"],
+            ["WhatsApp", customer.whatsapp_phone || "-"],
             ["Address", customer.address || "-"],
             [
               "Created",

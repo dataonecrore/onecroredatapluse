@@ -70,6 +70,9 @@ IMPORT_HEADER_ALIASES = {
     "phone": "phone",
     "phone number": "phone",
     "customer phone": "phone",
+    "whatsapp": "whatsapp_phone",
+    "whatsapp number": "whatsapp_phone",
+    "whatsapp phone": "whatsapp_phone",
     "address": "address",
     "customer address": "address",
     "email": "email",
@@ -118,6 +121,7 @@ class CustomerCreate(BaseModel):
     name: str
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    whatsapp_phone: Optional[str] = None
     address: Optional[str] = None
     company: Optional[str] = None
     status: str = "Active"
@@ -131,6 +135,7 @@ class CustomerUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    whatsapp_phone: Optional[str] = None
     address: Optional[str] = None
     company: Optional[str] = None
     status: Optional[str] = None
@@ -890,7 +895,7 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
             raise ValueError("The file must include at least one customer row.")
 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
-        allowed_fields = {"name", "email", "phone", "address", "company", "status", "notes"}
+        allowed_fields = {"name", "email", "phone", "whatsapp_phone", "address", "company", "status", "notes"}
 
         for row in rows:
             processed += 1
