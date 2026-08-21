@@ -274,6 +274,74 @@ button {
   border-color: #e8edf5 !important;
 }
 
+.dashboard-profile:hover {
+  background: #f8fafc;
+}
+
+.dashboard-account-chevron {
+  font-size: 25px;
+  font-weight: 300;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform 150ms ease;
+}
+
+.dashboard-account-menu-open .dashboard-account-chevron {
+  transform: rotate(-90deg);
+}
+
+.dashboard-account-panel {
+  margin: 0 0 8px;
+  padding: 8px;
+  border: 1px solid #e5eaf2;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(31, 64, 140, 0.1);
+}
+
+.dashboard-account-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: #1e293b;
+  background: transparent;
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+}
+
+.dashboard-account-item:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.dashboard-account-item + .dashboard-account-item {
+  margin-top: 2px;
+}
+
+.dashboard-account-item-arrow {
+  margin-left: auto;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.dashboard-account-logout {
+  margin-top: 8px !important;
+  border-top: 1px solid #e5eaf2;
+  border-radius: 0 0 9px 9px;
+  color: #dc2626;
+}
+
+.dashboard-account-logout:hover {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
 .dashboard-growth-arrow {
   color: #38bdf8;
   font-size: 25px;

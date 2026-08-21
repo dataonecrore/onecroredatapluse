@@ -1359,6 +1359,48 @@ function LoginReports() {
   );
 }
 
+function AccountMenu({ displayName, avatarInitials, isAdmin, onSelectView, onLogout }) {
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+
+  return (
+    <div className={`dashboard-account-menu ${accountMenuOpen ? "dashboard-account-menu-open" : ""}`}>
+      <button
+        type="button"
+        className="dashboard-profile flex w-full items-center gap-3 border-t border-white/10 px-2 py-4 text-left"
+        onClick={() => setAccountMenuOpen((value) => !value)}
+        aria-expanded={accountMenuOpen}
+      >
+        <div className="dashboard-avatar">{avatarInitials}</div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{displayName}</p>
+          <p className="text-xs text-slate-400">{isAdmin ? "Admin" : "User"}</p>
+        </div>
+        <span className="dashboard-account-chevron" aria-hidden="true">›</span>
+      </button>
+
+      {accountMenuOpen && (
+        <div className="dashboard-account-panel">
+          <button type="button" className="dashboard-account-item" onClick={() => onSelectView("Settings")}>
+            <span aria-hidden="true">◌</span><span>Personalization</span>
+          </button>
+          <button type="button" className="dashboard-account-item" onClick={() => onSelectView("Settings")}>
+            <span aria-hidden="true">◎</span><span>Profile</span>
+          </button>
+          <button type="button" className="dashboard-account-item" onClick={() => onSelectView("Settings")}>
+            <span aria-hidden="true">⚙</span><span>Settings</span>
+          </button>
+          <a className="dashboard-account-item" href="mailto:support@onecrorecrm.com">
+            <span aria-hidden="true">◉</span><span>Help</span><span className="dashboard-account-item-arrow" aria-hidden="true">›</span>
+          </a>
+          <button type="button" className="dashboard-account-item dashboard-account-logout" onClick={onLogout}>
+            <span aria-hidden="true">↪</span><span>Log out</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate, demoMode = false }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
@@ -1547,12 +1589,10 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
         ["Reports", "▥"],
         ["Campaigns", "✦"],
         ["Plans", "◇"],
-        ["Settings", "⚙"],
       ]
     : [
         ["Dashboard", "▦"],
         ["Follow-ups", "□"],
-        ["Settings", "⚙"],
       ];
 
   const isCustomerSearchView = activeView === "Dashboard";
@@ -1608,20 +1648,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
         </nav>
 
         <div className="mt-auto border-t border-white/10 p-4">
-          <div className="dashboard-profile flex items-center gap-3 border-t border-white/10 px-2 py-4">
-            <div className="dashboard-avatar">{avatarInitials}</div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{displayName}</p>
-              <p className="text-xs text-slate-400">{isAdmin ? "Admin" : "User"}</p>
-            </div>
-            <span className="text-sm" aria-hidden="true">⌄</span>
-          </div>
-          <button
-            onClick={onLogout}
-            className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
-          >
-            Sign out
-          </button>
+          <AccountMenu displayName={displayName} avatarInitials={avatarInitials} isAdmin={isAdmin} onSelectView={selectView} onLogout={onLogout} />
         </div>
       </aside>
 
@@ -1661,12 +1688,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
             </nav>
 
             <div className="border-t border-white/10 p-4">
-              <button
-                onClick={onLogout}
-                className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
-              >
-                Sign out
-              </button>
+              <AccountMenu displayName={displayName} avatarInitials={avatarInitials} isAdmin={isAdmin} onSelectView={selectView} onLogout={onLogout} />
             </div>
           </aside>
         </div>
