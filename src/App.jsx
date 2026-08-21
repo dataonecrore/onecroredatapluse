@@ -1102,7 +1102,7 @@ const MARKETING_PLANS = [
   ["Pro", "₹7,999", "Multiple locations", "Advanced workflows and team controls"],
 ];
 
-function Campaigns({ demoMode = false }) {
+function Campaigns({ demoMode = false, onAddCustomer }) {
   const [campaigns, setCampaigns] = useState([]);
   const [form, setForm] = useState({ name: "", channel: "whatsapp", audience: "All opted-in customers", message: "" });
   const [loading, setLoading] = useState(true);
@@ -1190,7 +1190,7 @@ function Campaigns({ demoMode = false }) {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Campaigns</p><h2 className="mt-2 text-xl font-bold text-slate-950">Your workspace</h2></div><span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Drafts only</span></div>
         <p className="mt-1 text-sm text-slate-500">Delivery integrations and consent checks come before sending.</p>
-        <div className="mt-6 divide-y divide-slate-100">{loading ? <p className="py-8 text-sm text-slate-500">Loading campaigns...</p> : campaigns.length === 0 ? <p className="py-8 text-sm text-slate-500">No campaigns yet. Your saved drafts will appear here.</p> : campaigns.map((campaign) => <div key={campaign.id} className="py-4 first:pt-0"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{campaign.name}</p><p className="mt-1 text-sm text-slate-500">{campaign.audience} · {campaign.channel}</p></div><span className="text-xs font-bold uppercase text-slate-400">{campaign.status}</span></div><p className="mt-2 line-clamp-2 text-sm text-slate-600">{campaign.message}</p></div>)}</div>
+        <div className="mt-6 divide-y divide-slate-100">{loading ? <p className="py-8 text-sm text-slate-500">Loading campaigns...</p> : campaigns.length === 0 ? <div className="py-8"><p className="text-sm text-slate-500">No campaigns yet. Your saved drafts will appear here.</p><button type="button" onClick={onAddCustomer} className="mt-5 rounded-xl border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50">Add customer contact</button></div> : campaigns.map((campaign) => <div key={campaign.id} className="py-4 first:pt-0"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{campaign.name}</p><p className="mt-1 text-sm text-slate-500">{campaign.audience} · {campaign.channel}</p></div><span className="text-xs font-bold uppercase text-slate-400">{campaign.status}</span></div><p className="mt-2 line-clamp-2 text-sm text-slate-600">{campaign.message}</p></div>)}</div>
       </section>
     </div>
   );
@@ -1697,7 +1697,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                 )}
               </div>
 
-              {isAdmin && isCustomerSearchView && (
+              {isAdmin && (isCustomerSearchView || activeView === "Campaigns") && (
                 <button
                   onClick={openAddCustomer}
                   className="dashboard-add-customer rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 sm:px-4 sm:py-2.5 sm:text-sm"
@@ -1719,7 +1719,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
           ) : activeView === "Reports" && isAdmin ? (
             <LoginReports />
           ) : activeView === "Campaigns" && isAdmin ? (
-            <Campaigns demoMode={demoMode} />
+            <Campaigns demoMode={demoMode} onAddCustomer={openAddCustomer} />
           ) : activeView === "Plans" && isAdmin ? (
             <Plans />
           ) : activeView === "Settings" ? (
