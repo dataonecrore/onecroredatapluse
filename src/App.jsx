@@ -1226,6 +1226,7 @@ function LoginReports() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [recentLoginsOpen, setRecentLoginsOpen] = useState(false);
 
   const downloadCsv = async (url, filename) => {
     try {
@@ -1353,11 +1354,22 @@ function LoginReports() {
       </div>
 
       <div className="dashboard-customers overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5">
-          <h3 className="text-lg font-bold text-slate-950">Recent logins</h3>
-          <p className="mt-1 text-sm text-slate-500">The latest 25 successful sign-ins.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
+          <div>
+            <h3 className="text-lg font-bold text-slate-950">Recent logins</h3>
+            <p className="mt-1 text-sm text-slate-500">The latest 25 successful sign-ins.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRecentLoginsOpen((value) => !value)}
+            aria-expanded={recentLoginsOpen}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            {recentLoginsOpen ? "Collapse" : "Show logins"}
+            <span className="ml-2" aria-hidden="true">{recentLoginsOpen ? "⌃" : "⌄"}</span>
+          </button>
         </div>
-        <div className="hidden overflow-x-auto sm:block">
+        {recentLoginsOpen && <div className="hidden overflow-x-auto sm:block">
           <table className="min-w-full">
             <thead className="bg-slate-50">
               <tr>
@@ -1374,8 +1386,8 @@ function LoginReports() {
               ))}
             </tbody>
           </table>
-        </div>
-        <div className="divide-y divide-slate-100 sm:hidden">
+        </div>}
+        {recentLoginsOpen && <div className="divide-y divide-slate-100 sm:hidden">
           {(report?.recent_logins || []).map((login) => (
             <div key={login.id} className="p-4">
               <p className="font-semibold text-slate-900">{login.user_name || "Name not provided"}</p>
@@ -1383,7 +1395,7 @@ function LoginReports() {
               <p className="mt-1 text-xs text-slate-400">{new Date(login.occurred_at).toLocaleString()}</p>
             </div>
           ))}
-        </div>
+        </div>}
         {!loading && !error && (report?.recent_logins || []).length === 0 && <p className="px-5 py-10 text-center text-sm text-slate-500">No login events have been recorded yet.</p>}
       </div>
 
