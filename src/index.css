@@ -744,6 +744,34 @@ button {
   background: #020617 !important;
 }
 
+.theme-dark .reports-export-panel,
+.theme-night .reports-export-panel {
+  border-color: #385783 !important;
+  background: #152d57 !important;
+}
+
+.theme-dark .reports-export-heading,
+.theme-night .reports-export-heading {
+  color: #f8fafc !important;
+}
+
+.theme-dark .reports-export-copy,
+.theme-night .reports-export-copy {
+  color: #bfd0ea !important;
+}
+
+.theme-dark .reports-export-secondary,
+.theme-night .reports-export-secondary {
+  border-color: #60a5fa !important;
+  color: #dbeafe !important;
+  background: #173a75 !important;
+}
+
+.theme-dark .reports-export-secondary:hover,
+.theme-night .reports-export-secondary:hover {
+  background: #214b8c !important;
+}
+
 .theme-dark .dashboard-sidebar {
   color: #f8fafc;
   border-right-color: #263449;
