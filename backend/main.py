@@ -4,6 +4,9 @@ import re
 import smtplib
 import uuid
 import logging
+import threading
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
@@ -12,7 +15,7 @@ from urllib.parse import quote, urlparse
 
 import requests
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr
@@ -230,6 +233,70 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "").strip()
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
 EMAIL_FROM = os.getenv("EMAIL_FROM", SMTP_USER).strip()
+SIGNUP_RATE_LIMIT = int(os.getenv("SIGNUP_RATE_LIMIT_PER_MINUTE", "500"))
+SIGNUP_EMAIL_LIMIT = int(os.getenv("SIGNUP_RATE_LIMIT_PER_EMAIL", "3"))
+SIGNUP_RATE_WINDOW_SECONDS = 60
+
+
+class SignupRateLimiter:
+    def __init__(self):
+        self.redis_url = os.getenv("REDIS_URL", "").strip()
+        self.redis_client = None
+        self.local_events = defaultdict(deque)
+        self.lock = threading.Lock()
+        if self.redis_url:
+            try:
+                import redis
+
+                self.redis_client = redis.Redis.from_url(
+                    self.redis_url, decode_responses=True
+                )
+            except ImportError:
+                logger.warning("Redis client is unavailable; using local signup limits.")
+
+    def _allow_local(self, key: str, limit: int, now: float) -> tuple[bool, int]:
+        with self.lock:
+            events = self.local_events[key]
+            cutoff = now - SIGNUP_RATE_WINDOW_SECONDS
+            while events and events[0] <= cutoff:
+                events.popleft()
+            if len(events) >= limit:
+                retry_after = max(1, int(events[0] + SIGNUP_RATE_WINDOW_SECONDS - now))
+                return False, retry_after
+            events.append(now)
+            return True, 0
+
+    def allow(self, ip_address: str, email: str) -> tuple[bool, int]:
+        now = time.time()
+        if not self.redis_url:
+            ip_allowed, retry_after = self._allow_local(
+                f"ip:{ip_address}", SIGNUP_RATE_LIMIT, now
+            )
+            if not ip_allowed:
+                return False, retry_after
+            return self._allow_local(
+                f"email:{email}", SIGNUP_EMAIL_LIMIT, now
+            )
+
+        try:
+            if self.redis_client is None:
+                return self._allow_local(f"ip:{ip_address}", SIGNUP_RATE_LIMIT, now)
+
+            pipe = self.redis_client.pipeline()
+            keys = [f"onecrore:signup:ip:{ip_address}", f"onecrore:signup:email:{email}"]
+            for key, limit in zip(keys, (SIGNUP_RATE_LIMIT, SIGNUP_EMAIL_LIMIT)):
+                pipe.incr(key)
+                pipe.expire(key, SIGNUP_RATE_WINDOW_SECONDS)
+            ip_count, _, email_count, _ = pipe.execute()
+            if ip_count > SIGNUP_RATE_LIMIT or email_count > SIGNUP_EMAIL_LIMIT:
+                return False, SIGNUP_RATE_WINDOW_SECONDS
+            return True, 0
+        except Exception:
+            logger.exception("Signup rate limiter unavailable; using local fallback.")
+            return self._allow_local(f"ip:{ip_address}", SIGNUP_RATE_LIMIT, now)
+
+
+signup_rate_limiter = SignupRateLimiter()
 
 
 def normalize_name_query(value: str) -> str:
@@ -356,8 +423,28 @@ def record_login_event(user: dict) -> bool:
     return True
 
 
-@app.post("/auth/login")
-def login(payload: LoginRequest):
+def raise_signup_api_error(response):
+    if response.status_code == 429:
+        retry_after = response.headers.get("Retry-After")
+        headers = {"Retry-After": retry_after} if retry_after else None
+        raise HTTPException(
+            status_code=429,
+            detail="Signup is temporarily rate-limited. Please try again shortly.",
+            headers=headers,
+        )
+
+    try:
+        error_data = response.json()
+        detail = error_data.get("msg") or error_data.get("message") or error_data.get("error_description")
+    except ValueError:
+        detail = None
+    raise HTTPException(
+        status_code=response.status_code,
+        detail=detail or "Unable to create account.",
+    )
+
+
+def login(payload: LoginRequest, background_tasks: Optional[BackgroundTasks] = None):
     response = requests.post(
         f"{AUTH_URL}/token?grant_type=password",
         headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
@@ -378,10 +465,15 @@ def login(payload: LoginRequest):
         headers=auth_headers(session["access_token"]),
         timeout=10,
     )
+    if user_response.status_code != 200:
+        raise HTTPException(status_code=502, detail="Unable to load the signed-in user.")
     user = user_response.json()
     email = (user.get("email") or "").lower()
     role = resolve_user_role(user)
-    record_login_event(user)
+    if background_tasks is None:
+        record_login_event(user)
+    else:
+        background_tasks.add_task(record_login_event, user)
     return {
         "access_token": session["access_token"],
         "user": {
@@ -393,7 +485,26 @@ def login(payload: LoginRequest):
     }
 
 
+@app.post("/auth/login")
+def login_endpoint(payload: LoginRequest, background_tasks: BackgroundTasks):
+    return login(payload, background_tasks)
+
+
 @app.post("/auth/signup", status_code=201)
+def signup_endpoint(payload: SignupRequest, request: Request):
+    ip_address = request.client.host if request.client else "unknown"
+    allowed, retry_after = signup_rate_limiter.allow(
+        ip_address, payload.email.strip().casefold()
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many signup attempts. Please try again shortly.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    return signup(payload)
+
+
 def signup(payload: SignupRequest):
     if len(payload.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
@@ -415,13 +526,7 @@ def signup(payload: SignupRequest):
         timeout=10,
     )
     if response.status_code not in (200, 201):
-        try:
-            error_data = response.json()
-            detail = error_data.get("msg") or error_data.get("message") or error_data.get("error_description")
-        except ValueError:
-            detail = None
-        detail = detail or "Unable to create account."
-        raise HTTPException(status_code=response.status_code, detail=detail)
+        raise_signup_api_error(response)
 
     created_user = response.json().get("user") or response.json()
     user_id = created_user.get("id")
@@ -446,6 +551,8 @@ def signup(payload: SignupRequest):
         else {}
     )
     if metadata_response.status_code != 200 or get_user_name(updated_user) != name:
+        if metadata_response.status_code == 429:
+            raise_signup_api_error(metadata_response)
         raise HTTPException(
             status_code=502,
             detail="Account was created, but the name could not be saved. Contact an administrator.",

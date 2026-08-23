@@ -7,3 +7,4 @@ python-multipart
 openpyxl
 xlrd
 psycopg[binary]==3.3.4
+redis>=5.0,<7
