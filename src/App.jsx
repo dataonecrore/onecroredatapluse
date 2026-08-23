@@ -752,6 +752,7 @@ function AdminUsers() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [deletingUserId, setDeletingUserId] = useState("");
+  const [inviting, setInviting] = useState(false);
 
   const loadUsers = async (query = userSearch, signal) => {
     setLoading(true);
@@ -793,8 +794,10 @@ function AdminUsers() {
 
   const inviteUser = async (event) => {
     event.preventDefault();
+    if (inviting) return;
     setError("");
     setMessage("");
+    setInviting(true);
     try {
       const response = await apiFetch(`${API_BASE_URL}/auth/users/invite`, {
         method: "POST",
@@ -808,6 +811,8 @@ function AdminUsers() {
       await loadUsers(userSearch);
     } catch (inviteError) {
       setError(inviteError.message);
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -866,7 +871,7 @@ function AdminUsers() {
           <option value="user">User</option>
           <option value="admin">Admin</option>
         </select>
-        <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Invite User</button>
+        <button type="submit" disabled={inviting} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{inviting ? "Sending..." : "Invite User"}</button>
       </form>
       <div className="border-b border-slate-200 p-5">
         <label htmlFor="registered-customer-search" className="mb-2 block text-sm font-semibold text-slate-700">
