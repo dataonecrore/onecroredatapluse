@@ -905,9 +905,9 @@ def invite_user(payload: InviteRequest, _: dict = Depends(require_admin)):
         }
 
     response = requests.post(
-        f"{AUTH_URL}/admin/invite",
+        f"{AUTH_URL}/invite",
         headers=HEADERS,
-        json={"email": payload.email},
+        json={"email": str(payload.email), "redirect_to": FRONTEND_URL},
         timeout=10,
     )
     if response.status_code not in (200, 201):

@@ -109,6 +109,14 @@ class UserInviteTests(unittest.TestCase):
             request_post.call_args.kwargs["headers"]["Authorization"],
             f"Bearer {main.SUPABASE_KEY}",
         )
+        self.assertEqual(
+            request_post.call_args.args[0],
+            f"{main.AUTH_URL}/invite",
+        )
+        self.assertEqual(
+            request_post.call_args.kwargs["json"],
+            {"email": "new@example.com", "redirect_to": main.FRONTEND_URL},
+        )
 
     @patch("backend.main.requests.get")
     def test_user_lookup_failure_returns_safe_message(self, request_get):
