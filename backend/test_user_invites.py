@@ -10,15 +10,38 @@ from backend import main
 
 
 class FakeResponse:
-    def __init__(self, data, status_code=200):
+    def __init__(self, data, status_code=200, headers=None):
         self._data = data
         self.status_code = status_code
+        self.headers = headers or {}
 
     def json(self):
         return self._data
 
 
 class UserInviteTests(unittest.TestCase):
+    @patch("backend.main.requests.post")
+    @patch("backend.main.requests.get")
+    def test_invite_surfaces_supabase_rate_limit_without_retry_lookup(
+        self, request_get, request_post
+    ):
+        request_get.return_value = FakeResponse({"users": []})
+        request_post.return_value = FakeResponse(
+            {"message": "rate limit exceeded"},
+            status_code=429,
+            headers={"Retry-After": "60"},
+        )
+
+        with self.assertRaises(main.HTTPException) as context:
+            main.invite_user(
+                main.InviteRequest(email="new@example.com", role="user"),
+                _={"role": "admin"},
+            )
+
+        self.assertEqual(context.exception.status_code, 429)
+        self.assertEqual(context.exception.headers, {"Retry-After": "60"})
+        self.assertEqual(request_get.call_count, 1)
+
     @patch("backend.main.requests.post")
     @patch("backend.main.requests.put")
     @patch("backend.main.requests.get")

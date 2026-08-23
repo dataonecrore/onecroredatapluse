@@ -878,6 +878,17 @@ def set_auth_user_role(user: dict, role: str):
     return user_id
 
 
+def raise_invite_api_error(response):
+    if response.status_code == 429:
+        retry_after = response.headers.get("Retry-After")
+        raise HTTPException(
+            status_code=429,
+            detail="Invitation sending is temporarily rate-limited. Please try again shortly.",
+            headers={"Retry-After": retry_after} if retry_after else None,
+        )
+    raise HTTPException(status_code=502, detail="Unable to send the invitation.")
+
+
 @app.post("/auth/users/invite")
 def invite_user(payload: InviteRequest, _: dict = Depends(require_admin)):
     if payload.role not in {"admin", "user"}:
@@ -901,6 +912,8 @@ def invite_user(payload: InviteRequest, _: dict = Depends(require_admin)):
         timeout=10,
     )
     if response.status_code not in (200, 201):
+        if response.status_code == 429:
+            raise_invite_api_error(response)
         # A registration may race the initial lookup. Re-check before returning
         # an invitation error so existing accounts remain idempotent.
         existing_user = find_auth_user_by_email(str(payload.email))
@@ -913,7 +926,7 @@ def invite_user(payload: InviteRequest, _: dict = Depends(require_admin)):
                 "status": "existing",
                 "message": "User already registered. Their role was updated; no new invitation was sent.",
             }
-        raise HTTPException(status_code=400, detail="Unable to send the invitation.")
+        raise_invite_api_error(response)
 
     invited_user = response.json().get("user") or response.json()
     user_id = set_auth_user_role(invited_user, payload.role)
