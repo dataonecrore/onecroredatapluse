@@ -97,9 +97,8 @@ HEADERS = {
     "apikey": SUPABASE_KEY,
     "Content-Type": "application/json",
     "Prefer": "return=representation",
+    "Authorization": f"Bearer {SUPABASE_KEY}",
 }
-if not SUPABASE_KEY.startswith(("sb_secret_", "sb_publishable_")):
-    HEADERS["Authorization"] = f"Bearer {SUPABASE_KEY}"
 
 
 app = FastAPI(

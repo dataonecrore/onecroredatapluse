@@ -105,6 +105,10 @@ class UserInviteTests(unittest.TestCase):
             request_put.call_args.kwargs["json"],
             {"app_metadata": {"role": "user"}},
         )
+        self.assertEqual(
+            request_post.call_args.kwargs["headers"]["Authorization"],
+            f"Bearer {main.SUPABASE_KEY}",
+        )
 
     @patch("backend.main.requests.get")
     def test_user_lookup_failure_returns_safe_message(self, request_get):
