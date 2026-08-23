@@ -1278,17 +1278,9 @@ function LoginReports() {
           <h2 className="mt-2 text-2xl font-bold text-slate-950">Login Activity</h2>
           <p className="mt-1 text-sm text-slate-500">Successful web application logins, reported in India Standard Time.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/reports/login-activity/export?period=${period}`, `onecrore-login-activity-${period}.csv`)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-            Export logins
-          </button>
-          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/auth/users/export`, "onecrore-registered-users.csv")} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            Export users
-          </button>
-          <button type="button" onClick={() => void loadReport()} disabled={loading} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+        <button type="button" onClick={() => void loadReport()} disabled={loading} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             {loading ? "Refreshing..." : "Refresh report"}
-          </button>
-        </div>
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-2" aria-label="Report period">
@@ -1302,6 +1294,21 @@ function LoginReports() {
             {label}
           </button>
         ))}
+      </div>
+
+      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div>
+          <h3 className="font-bold text-slate-950">Export data</h3>
+          <p className="mt-1 text-sm text-slate-600">Download the selected login period or the complete registered-user list.</p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
+          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/reports/login-activity/export?period=${period}`, `onecrore-login-activity-${period}.csv`)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            Export logins
+          </button>
+          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/auth/users/export`, "onecrore-registered-users.csv")} className="rounded-xl border border-blue-300 bg-white px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-100">
+            Export users
+          </button>
+        </div>
       </div>
 
       {error && (
