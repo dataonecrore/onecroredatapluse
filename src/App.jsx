@@ -1227,6 +1227,24 @@ function LoginReports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const downloadCsv = async (url, filename) => {
+    try {
+      const response = await apiFetch(url);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "Unable to export data.");
+      }
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (downloadError) {
+      setError(downloadError.message || "Unable to export data.");
+    }
+  };
+
   const loadReport = async (selectedPeriod = period) => {
     setLoading(true);
     setError("");
@@ -1261,7 +1279,7 @@ function LoginReports() {
           <p className="mt-1 text-sm text-slate-500">Successful web application logins, reported in India Standard Time.</p>
         </div>
         <button type="button" onClick={() => void loadReport()} disabled={loading} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-          {loading ? "Refreshing..." : "Refresh report"}
+            {loading ? "Refreshing..." : "Refresh report"}
         </button>
       </div>
 
@@ -1276,6 +1294,21 @@ function LoginReports() {
             {label}
           </button>
         ))}
+      </div>
+
+      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div>
+          <h3 className="font-bold text-slate-950">Export data</h3>
+          <p className="mt-1 text-sm text-slate-600">Download the selected login period or the complete registered-user list.</p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
+          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/reports/login-activity/export?period=${period}`, `onecrore-login-activity-${period}.csv`)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            Export logins
+          </button>
+          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/auth/users/export`, "onecrore-registered-users.csv")} className="rounded-xl border border-blue-300 bg-white px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-100">
+            Export users
+          </button>
+        </div>
       </div>
 
       {error && (
