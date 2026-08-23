@@ -67,6 +67,8 @@ Apply `supabase/migrations/20260820160010_login_events_reports.sql` before deplo
 
 Admins can open **Reports** to monitor successful logins for today, this week, this month, or all time. Metrics use the `Asia/Kolkata` timezone and include total logins, unique users, average logins per user, a time-bucket trend, and the latest 25 sign-ins. Tracking starts after the migration and backend are deployed; Supabase Auth does not provide enough history to reconstruct every earlier login.
 
+Reports also provides **Export logins** for the selected period and **Export users** for the complete registered-user list. The user export includes `last_sign_in_at`, which can be used to identify active users in a spreadsheet; a blank value means the account has never signed in.
+
 ## Customer follow-ups
 
 Apply `supabase/migrations/20260821041254_create_follow_ups.sql` before deploying

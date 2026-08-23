@@ -1227,6 +1227,24 @@ function LoginReports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const downloadCsv = async (url, filename) => {
+    try {
+      const response = await apiFetch(url);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "Unable to export data.");
+      }
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (downloadError) {
+      setError(downloadError.message || "Unable to export data.");
+    }
+  };
+
   const loadReport = async (selectedPeriod = period) => {
     setLoading(true);
     setError("");
@@ -1260,9 +1278,17 @@ function LoginReports() {
           <h2 className="mt-2 text-2xl font-bold text-slate-950">Login Activity</h2>
           <p className="mt-1 text-sm text-slate-500">Successful web application logins, reported in India Standard Time.</p>
         </div>
-        <button type="button" onClick={() => void loadReport()} disabled={loading} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-          {loading ? "Refreshing..." : "Refresh report"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/reports/login-activity/export?period=${period}`, `onecrore-login-activity-${period}.csv`)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            Export logins
+          </button>
+          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/auth/users/export`, "onecrore-registered-users.csv")} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Export users
+          </button>
+          <button type="button" onClick={() => void loadReport()} disabled={loading} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            {loading ? "Refreshing..." : "Refresh report"}
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2" aria-label="Report period">

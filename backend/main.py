@@ -6,6 +6,7 @@ import uuid
 import logging
 import threading
 import time
+import io
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from email.message import EmailMessage
@@ -18,6 +19,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr
 
 
@@ -766,6 +768,70 @@ def get_login_activity_report(
     report = summary_response.json()
     report["recent_logins"] = recent_response.json()
     return report
+
+
+def csv_download(filename: str, headers: list[str], rows: list[list[object]]):
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/reports/login-activity/export")
+def export_login_activity(
+    period: Literal["daily", "weekly", "monthly", "all"] = "daily",
+    _: dict = Depends(require_admin),
+):
+    params = {
+        "select": "id,user_name,user_email,occurred_at",
+        "order": "occurred_at.desc",
+        "limit": "10000",
+    }
+    if period != "all":
+        days = {"daily": 1, "weekly": 7, "monthly": 31}[period]
+        since = datetime.now(timezone.utc).timestamp() - days * 86400
+        params["occurred_at"] = f"gte.{datetime.fromtimestamp(since, timezone.utc).isoformat()}"
+
+    response = requests.get(
+        f"{REST_URL}/login_events", headers=HEADERS, params=params, timeout=20
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=503, detail="Unable to export login activity.")
+    rows = response.json()
+    return csv_download(
+        f"onecrore-login-activity-{period}.csv",
+        ["User", "Email", "Login time", "Event ID"],
+        [[row.get("user_name") or "", row.get("user_email") or "", row.get("occurred_at") or "", row.get("id") or ""] for row in rows],
+    )
+
+
+@app.get("/auth/users/export")
+def export_registered_users(_: dict = Depends(require_admin)):
+    exported_users = []
+    for page in range(1, 101):
+        response = requests.get(
+            f"{AUTH_URL}/admin/users",
+            headers=HEADERS,
+            params={"page": page, "per_page": 1000},
+            timeout=20,
+        )
+        if response.status_code != 200:
+            raise HTTPException(status_code=503, detail="Unable to export registered users.")
+        users = response.json().get("users", [])
+        exported_users.extend(users)
+        if len(users) < 1000:
+            break
+
+    return csv_download(
+        "onecrore-registered-users.csv",
+        ["Name", "Email", "Created at", "Last sign-in", "Role", "User ID"],
+        [[get_user_name(user), user.get("email") or "", user.get("created_at") or "", user.get("last_sign_in_at") or "", resolve_user_role(user), user.get("id") or ""] for user in exported_users],
+    )
 
 
 def find_auth_user_by_email(email: str):
