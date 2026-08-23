@@ -1296,16 +1296,16 @@ function LoginReports() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+      <div className="reports-export-panel rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <h3 className="font-bold text-slate-950">Export data</h3>
-          <p className="mt-1 text-sm text-slate-600">Download the selected login period or the complete registered-user list.</p>
+          <h3 className="reports-export-heading font-bold text-slate-950">Export data</h3>
+          <p className="reports-export-copy mt-1 text-sm text-slate-600">Download the selected login period or the complete registered-user list.</p>
         </div>
         <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
           <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/reports/login-activity/export?period=${period}`, `onecrore-login-activity-${period}.csv`)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
             Export logins
           </button>
-          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/auth/users/export`, "onecrore-registered-users.csv")} className="rounded-xl border border-blue-300 bg-white px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-100">
+          <button type="button" onClick={() => void downloadCsv(`${API_BASE_URL}/auth/users/export`, "onecrore-registered-users.csv")} className="reports-export-secondary rounded-xl border border-blue-300 bg-white px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-100">
             Export users
           </button>
         </div>
