@@ -10,15 +10,36 @@ from backend import main
 
 
 class FakeResponse:
-    def __init__(self, data, status_code=200):
+    def __init__(self, data, status_code=200, headers=None):
         self._data = data
         self.status_code = status_code
+        self.headers = headers or {}
 
     def json(self):
         return self._data
 
 
 class SignupTests(unittest.TestCase):
+    @patch("backend.main.requests.post")
+    def test_signup_surfaces_supabase_rate_limit(self, request_post):
+        request_post.return_value = FakeResponse(
+            {"message": "rate limit exceeded"},
+            status_code=429,
+            headers={"Retry-After": "30"},
+        )
+
+        with self.assertRaises(main.HTTPException) as context:
+            main.signup(
+                main.SignupRequest(
+                    email="member@example.com",
+                    password="password123",
+                    name="Member Name",
+                )
+            )
+
+        self.assertEqual(context.exception.status_code, 429)
+        self.assertEqual(context.exception.headers, {"Retry-After": "30"})
+
     @patch("backend.main.requests.put")
     @patch("backend.main.requests.post")
     def test_signup_explicitly_persists_name_after_user_creation(

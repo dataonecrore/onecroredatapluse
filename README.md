@@ -47,6 +47,14 @@ The first administrator must be listed in `ADMIN_EMAILS`. After signing in, an a
 
 Users may also choose **Create one** on the login screen. Self-registered accounts are always regular users and can sign in immediately without email confirmation.
 
+Signup is protected without CAPTCHA. The default limit is 500 attempts per IP
+per minute and 3 attempts per email per minute. For multi-worker production
+deployments, install the backend requirements and set `REDIS_URL` to a private
+Redis instance so all workers share the same limits. The limits can be tuned
+with `SIGNUP_RATE_LIMIT_PER_MINUTE` and `SIGNUP_RATE_LIMIT_PER_EMAIL`. Without
+Redis, the limiter falls back to per-process memory and should be treated as a
+development fallback only.
+
 Customer reads require an authenticated Supabase session. Customer writes, imports, invitations, and role changes require an administrator session. Keep `SUPABASE_KEY` server-side and never expose it in frontend environment variables.
 
 For password recovery, add `FRONTEND_URL` to Supabase Authentication URL Configuration as an allowed redirect URL and set the same value in the backend deployment.
