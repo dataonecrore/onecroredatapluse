@@ -24,6 +24,8 @@ class CustomerSearchTests(unittest.TestCase):
         self.assertEqual(main.normalize_name_query("  Asha   RAO  "), "asha rao")
         with self.assertRaises(ValueError):
             main.normalize_name_query("**")
+        with self.assertRaises(ValueError):
+            main.normalize_name_query("ab")
 
     def test_normalizes_phone_to_digits(self):
         self.assertEqual(main.normalize_phone_query("+91 98765-43210"), "919876543210")
@@ -72,7 +74,7 @@ class CustomerSearchTests(unittest.TestCase):
 
         self.assertEqual(result["items"], [])
         params = request_get.call_args.kwargs["params"]
-        self.assertEqual(params["normalized_name"], "ilike.*asha*")
+        self.assertEqual(params["normalized_name"], "like.asha*")
         self.assertNotIn("address", params)
 
 

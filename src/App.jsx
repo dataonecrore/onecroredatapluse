@@ -1479,7 +1479,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
   const searchCustomers = async ({ cursor = null, append = false, signal } = {}) => {
     const query = search.trim();
     const resolvedField = resolveSearchField(query);
-    const minimumLength = resolvedField === "phone" ? 3 : 2;
+    const minimumLength = 3;
     if (query.length < minimumLength) {
       setCustomers([]);
       setNextCursor(null);
@@ -1533,7 +1533,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
   };
 
   useEffect(() => {
-    const minimumLength = resolveSearchField(search.trim()) === "phone" ? 3 : 2;
+    const minimumLength = 3;
     if (search.trim().length < minimumLength) {
       setCustomers([]);
       setNextCursor(null);

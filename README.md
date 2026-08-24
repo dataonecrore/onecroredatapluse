@@ -43,6 +43,8 @@ Apply the migration in `supabase/migrations` before deploying the matching backe
 
 The production-scale CSV importer is documented in [`docs/BULK_CUSTOMER_IMPORT_RUNBOOK.md`](docs/BULK_CUSTOMER_IMPORT_RUNBOOK.md). It uses a direct Postgres connection, bounded `COPY` batches, SHA-256 file verification, resumable checkpoints, and explicit duplicate handling. Do not apply its migration or run a production import until the source headers and duplicate-phone rule have been confirmed.
 
+The 100M-record operating model is documented in [`docs/100M_DATA_DEPLOYMENT_PLAN.md`](docs/100M_DATA_DEPLOYMENT_PLAN.md). It covers staged chunk imports, capacity-test gates, tenant isolation, export controls, and the Supabase access required for live sizing validation.
+
 The first administrator must be listed in `ADMIN_EMAILS`. After signing in, an admin can open **Customers** to view registered application users, invite users, and assign `user` or `admin` roles. Invitations are sent by Supabase Auth; users must complete the invitation flow before signing in.
 
 Users may also choose **Create one** on the login screen. Self-registered accounts are always regular users and can sign in immediately without email confirmation.

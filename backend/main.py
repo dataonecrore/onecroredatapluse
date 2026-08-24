@@ -311,8 +311,8 @@ signup_rate_limiter = SignupRateLimiter()
 def normalize_name_query(value: str) -> str:
     normalized = re.sub(r"\s+", " ", value.strip().casefold())
     normalized = normalized.replace("*", "").replace("%", "")
-    if len(normalized) < 2 or not any(character.isalnum() for character in normalized):
-        raise ValueError("Enter at least 2 letters or numbers for a name search.")
+    if len(normalized) < 3 or not any(character.isalnum() for character in normalized):
+        raise ValueError("Enter at least 3 letters or numbers for a name search.")
     return normalized
 
 
@@ -1613,7 +1613,7 @@ def search_customers(
     if resolved_field == "phone":
         params["normalized_phone"] = f"like.{normalized_query}*"
     else:
-        params["normalized_name"] = f"ilike.*{normalized_query}*"
+        params["normalized_name"] = f"like.{normalized_query}*"
 
     response = requests.get(
         f"{REST_URL}/customers",
