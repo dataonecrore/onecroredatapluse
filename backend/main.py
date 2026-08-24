@@ -67,7 +67,8 @@ ADMIN_EMAILS = {
 }
 IMPORT_DIR = Path(__file__).parent / "imports"
 IMPORT_DIR.mkdir(exist_ok=True)
-MAX_IMPORT_SIZE = 100 * 1024 * 1024
+SMALL_IMPORT_SIZE = 100 * 1024 * 1024
+MAX_IMPORT_SIZE = int(os.getenv("MAX_IMPORT_SIZE_BYTES", str(5 * 1024 * 1024 * 1024)))
 ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
 import_jobs = {}
 
@@ -1157,6 +1158,33 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
         file_path.unlink(missing_ok=True)
 
 
+def import_customers_with_copy(job_id: str, file_path: Path, duplicate_mode: str):
+    try:
+        from backend.bulk_import import build_parser, import_csv
+
+        arguments = build_parser().parse_args(
+            [
+                "--file",
+                str(file_path),
+                "--database-url",
+                os.environ["SUPABASE_DB_URL"],
+                "--duplicate-mode",
+                duplicate_mode,
+            ]
+        )
+        import_csv(arguments)
+        update_import_job(
+            job_id,
+            status="ready",
+            progress=100,
+            message="Production import complete using PostgreSQL COPY.",
+        )
+    except Exception as error:
+        update_import_job(job_id, status="failed", message=str(error))
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
 @app.post("/imports/customers", status_code=202)
 async def upload_customers(
     background_tasks: BackgroundTasks,
@@ -1179,7 +1207,7 @@ async def upload_customers(
             while chunk := await file.read(1024 * 1024):
                 total_bytes += len(chunk)
                 if total_bytes > MAX_IMPORT_SIZE:
-                    raise HTTPException(status_code=413, detail="The upload must be smaller than 100 MB.")
+                    raise HTTPException(status_code=413, detail="The upload exceeds the configured server limit.")
                 output.write(chunk)
     except HTTPException:
         destination.unlink(missing_ok=True)
@@ -1200,14 +1228,30 @@ async def upload_customers(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "message": "File uploaded. Validating rows...",
     }
-    background_tasks.add_task(
-        import_customers,
-        job_id,
-        destination,
-        extension,
-        import_mode,
-        duplicate_keys,
-    )
+    if total_bytes > SMALL_IMPORT_SIZE:
+        if extension != ".csv":
+            destination.unlink(missing_ok=True)
+            raise HTTPException(status_code=400, detail="Large production imports must be UTF-8 CSV files.")
+        if not os.getenv("SUPABASE_DB_URL"):
+            destination.unlink(missing_ok=True)
+            raise HTTPException(status_code=503, detail="Configure SUPABASE_DB_URL for large production imports.")
+        if import_mode != "new" or "phone" not in duplicate_keys.split(","):
+            destination.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=400,
+                detail="Large imports require New mode with phone duplicate handling.",
+            )
+        import_jobs[job_id]["message"] = "Queued for PostgreSQL COPY import."
+        background_tasks.add_task(import_customers_with_copy, job_id, destination, "skip-phone")
+    else:
+        background_tasks.add_task(
+            import_customers,
+            job_id,
+            destination,
+            extension,
+            import_mode,
+            duplicate_keys,
+        )
 
     return import_jobs[job_id]
 

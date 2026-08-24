@@ -623,7 +623,7 @@ function CustomerImport() {
           Import Customers
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
-          Use this screen only for small validation batches. The production 10-million-row load uses the server-side bulk-import runbook.
+          Small files use the validation importer. Large CSV files use the server-side PostgreSQL COPY importer.
         </p>
       </div>
 
@@ -633,7 +633,7 @@ function CustomerImport() {
           <span className="mt-3 font-semibold text-slate-900">
             {file ? file.name : "Choose a customer file"}
           </span>
-          <span className="mt-1 text-sm text-slate-500">CSV, XLS, or XLSX, up to 100 MB</span>
+          <span className="mt-1 text-sm text-slate-500">CSV, XLS, or XLSX for validation; large production imports require CSV and New mode</span>
           <input
             type="file"
             accept=".csv,.xls,.xlsx"

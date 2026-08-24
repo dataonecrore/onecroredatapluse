@@ -8,11 +8,13 @@ One crore means 10 million records. The longer-term target of 100M records shoul
 - Customer reads go through FastAPI; the browser does not receive the service-role key.
 - Search uses normalized phone and name columns with cursor pagination.
 - Production imports use `backend/bulk_import.py`, a direct Postgres connection, bounded `COPY` batches, transactions, SHA-256 verification, and resumable checkpoints.
-- The browser import endpoint remains suitable only for small validation files.
+- The website upload endpoint streams files to disk. Files above the small-validation threshold are routed to the direct PostgreSQL `COPY` importer when `SUPABASE_DB_URL` is configured; they must be CSV and use New mode with phone duplicate handling.
 
 ## Required loading model
 
 Keep the 100M source data in immutable CSV chunks or source files and import only the records needed by the product at a given stage. Do not upload the full corpus through the browser or PostgREST.
+
+The website is a control surface, not a high-volume API writer. For a 30M-row load, split the source into chunks and upload one chunk at a time. Configure `MAX_IMPORT_SIZE_BYTES` above the expected chunk size and keep enough disk space for the uploaded file plus the active database import. A reverse proxy, request timeout, and ephemeral disk must also support the chosen chunk size; object storage plus a worker is preferred for unattended imports.
 
 Recommended process:
 

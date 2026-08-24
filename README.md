@@ -19,6 +19,7 @@ Set these backend environment variables before starting FastAPI:
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-server-only-service-role-key
+SUPABASE_DB_URL=postgresql://your-server-side-connection
 ADMIN_EMAILS=admin@your-company.com
 FRONTEND_URL=https://onecroredatapluse.vercel.app
 ```
@@ -57,7 +58,12 @@ with `SIGNUP_RATE_LIMIT_PER_MINUTE` and `SIGNUP_RATE_LIMIT_PER_EMAIL`. Without
 Redis, the limiter falls back to per-process memory and should be treated as a
 development fallback only.
 
-Customer reads require an authenticated Supabase session. Customer writes, imports, invitations, and role changes require an administrator session. Keep `SUPABASE_KEY` server-side and never expose it in frontend environment variables.
+Customer reads require an authenticated Supabase session. Customer writes, imports, invitations, and role changes require an administrator session. Keep `SUPABASE_KEY` and `SUPABASE_DB_URL` server-side and never expose them in frontend environment variables.
+
+Uploads above 100 MB are routed to the PostgreSQL `COPY` importer and require
+New mode with phone duplicate handling. Set `MAX_IMPORT_SIZE_BYTES` to the
+maximum chunk size supported by the API host and reverse proxy; split a 30M-row
+source into immutable chunks rather than sending one enormous request.
 
 For password recovery, add `FRONTEND_URL` to Supabase Authentication URL Configuration as an allowed redirect URL and set the same value in the backend deployment.
 
