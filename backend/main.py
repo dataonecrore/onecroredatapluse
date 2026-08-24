@@ -73,9 +73,15 @@ import_jobs = {}
 
 IMPORT_HEADER_ALIASES = {
     "name": "name",
+    "full name": "name",
+    "customer full name": "name",
     "customer name": "name",
     "phone": "phone",
     "phone number": "phone",
+    "phone no": "phone",
+    "mobile": "phone",
+    "mobile number": "phone",
+    "customer mobile": "phone",
     "customer phone": "phone",
     "customer phone number": "phone",
     "customer number": "phone",
@@ -987,7 +993,8 @@ def update_import_job(job_id, **updates):
 
 
 def normalize_import_header(value):
-    header = re.sub(r"\s+", " ", str(value or "").replace("_", " ")).strip().lower()
+    header = re.sub(r"[^a-z0-9]+", " ", str(value or "").replace("_", " ").lower())
+    header = re.sub(r"\s+", " ", header).strip()
     return IMPORT_HEADER_ALIASES.get(header, header.replace(" ", "_"))
 
 

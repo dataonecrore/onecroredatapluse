@@ -84,6 +84,14 @@ class CustomerImportTests(unittest.TestCase):
         self.assertEqual(rows[0]["phone"], "9000000001")
         self.assertEqual(rows[0]["address"], "12, Lake View Road")
 
+    def test_common_phone_header_variants_are_accepted(self):
+        self.assertEqual(
+            main.normalize_import_row(
+                {"Full Name": "Aarav Sharma", "Phone No.": 9000000001}
+            ),
+            {"name": "Aarav Sharma", "phone": "9000000001"},
+        )
+
     def test_missing_customer_phone_has_clear_error(self):
         with self.assertRaisesRegex(ValueError, "Name and Phone Number"):
             main.validate_import_headers(["Customer Name", "Customer Address"])
