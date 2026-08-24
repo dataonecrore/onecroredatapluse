@@ -77,6 +77,8 @@ IMPORT_HEADER_ALIASES = {
     "phone": "phone",
     "phone number": "phone",
     "customer phone": "phone",
+    "customer phone number": "phone",
+    "customer number": "phone",
     "whatsapp": "whatsapp_phone",
     "whatsapp number": "whatsapp_phone",
     "whatsapp phone": "whatsapp_phone",
@@ -999,8 +1001,8 @@ def validate_import_headers(headers):
     normalized = {normalize_import_header(header) for header in headers if header is not None}
     if not {"name", "phone"}.issubset(normalized):
         raise ValueError(
-            "The file must include Customer Name and Customer Phone columns "
-            "(or name and phone)."
+            "The file must include Name and Phone Number columns "
+            "(or Customer Name and Customer Phone)."
         )
 
 

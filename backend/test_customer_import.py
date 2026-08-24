@@ -69,8 +69,23 @@ class CustomerImportTests(unittest.TestCase):
             "12, Lake View Road, Banjara Hills, Hyderabad, Telangana, 500034",
         )
 
+    def test_xlsx_with_display_headers_is_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "display_headers.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.append(["Name", "Phone Number", "Address"])
+            sheet.append(["Aarav Sharma", 9000000001, "12, Lake View Road"])
+            workbook.save(path)
+
+            rows = main.read_import_rows(path, ".xlsx")
+
+        self.assertEqual(rows[0]["name"], "Aarav Sharma")
+        self.assertEqual(rows[0]["phone"], "9000000001")
+        self.assertEqual(rows[0]["address"], "12, Lake View Road")
+
     def test_missing_customer_phone_has_clear_error(self):
-        with self.assertRaisesRegex(ValueError, "Customer Name and Customer Phone"):
+        with self.assertRaisesRegex(ValueError, "Name and Phone Number"):
             main.validate_import_headers(["Customer Name", "Customer Address"])
 
 
