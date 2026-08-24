@@ -1895,9 +1895,9 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                     <thead className="bg-slate-50">
                       <tr>
                         {[
-                          "Customer Name",
-                          "Customer Number",
-                          "Customer Address",
+                          "Name",
+                          "Phone Number",
+                          "Address",
                         ].map((heading) => (
                           <th
                             key={heading}
@@ -1958,11 +1958,11 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
 
                       <div className="mt-3 space-y-1 text-sm text-slate-600">
                         <p>
-                          <span className="font-medium text-slate-700">Customer Number:</span>{" "}
+                          <span className="font-medium text-slate-700">Phone Number:</span>{" "}
                           {customer.phone || "-"}
                         </p>
                         <p className="dashboard-address-cell">
-                          <span><span className="font-medium text-slate-700">Customer Address:</span>{" "}{customer.address || "-"}</span>
+                          <span><span className="font-medium text-slate-700">Address:</span>{" "}{customer.address || "-"}</span>
                           {customer.address && (
                             <button
                               type="button"
