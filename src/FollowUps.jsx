@@ -345,7 +345,7 @@ export function FollowUps({ apiFetch, apiBaseUrl, demoMode = false }) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="feature-surface feature-followups space-y-5">
       <section className="overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-700 to-indigo-800 p-5 text-white shadow-sm sm:p-7">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>

@@ -614,7 +614,7 @@ function CustomerImport() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="feature-surface feature-import mx-auto max-w-4xl">
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
           Admin workspace
@@ -1022,7 +1022,7 @@ function Settings({ user, theme, onThemeChange, onUserUpdate, onLogout, demoMode
   const cardClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6";
 
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
+    <div className="feature-surface feature-settings grid gap-6 xl:grid-cols-2">
       {demoMode && (
         <div className="settings-demo-notice rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800 xl:col-span-2">
           Profile and password changes are disabled in demo mode. Appearance preferences remain available on this device.
@@ -1189,7 +1189,7 @@ function Campaigns({ demoMode = false, onAddCustomer, onImportCustomers }) {
   };
 
   return (
-    <div className="campaigns-layout grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+    <div className="feature-surface feature-campaigns campaigns-layout grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <section className="campaigns-panel min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Campaign studio</p>
         <h2 className="mt-2 text-xl font-bold text-slate-950">Create a campaign</h2>
@@ -1216,7 +1216,7 @@ function Campaigns({ demoMode = false, onAddCustomer, onImportCustomers }) {
 }
 
 function Plans() {
-  return <div><div className="mb-6"><p className="text-sm text-slate-500">Choose a plan that fits your customer communication volume. Billing activation will be connected before paid checkout.</p></div><div className="grid gap-5 lg:grid-cols-3">{MARKETING_PLANS.map(([name, price, limit, description], index) => <section key={name} className={`rounded-2xl border bg-white p-5 shadow-sm sm:p-6 ${index === 1 ? "border-blue-600 ring-2 ring-blue-100" : "border-slate-200"}`}><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold text-slate-950">{name}</h2>{index === 1 && <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">Recommended</span>}</div><p className="mt-5 text-3xl font-bold text-slate-950">{price}<span className="text-sm font-medium text-slate-500"> / month</span></p><p className="mt-2 font-semibold text-blue-700">{limit}</p><p className="mt-3 min-h-12 text-sm leading-6 text-slate-500">{description}</p><button type="button" disabled className="mt-6 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-500">Coming soon</button></section>)}</div></div>;
+  return <div className="feature-surface feature-plans"><div className="mb-6"><p className="text-sm text-slate-500">Choose a plan that fits your customer communication volume. Billing activation will be connected before paid checkout.</p></div><div className="grid gap-5 lg:grid-cols-3">{MARKETING_PLANS.map(([name, price, limit, description], index) => <section key={name} className={`feature-plan-card rounded-2xl border bg-white p-5 shadow-sm sm:p-6 ${index === 1 ? "border-blue-600 ring-2 ring-blue-100" : "border-slate-200"}`}><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold text-slate-950">{name}</h2>{index === 1 && <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">Recommended</span>}</div><p className="mt-5 text-3xl font-bold text-slate-950">{price}<span className="text-sm font-medium text-slate-500"> / month</span></p><p className="mt-2 font-semibold text-blue-700">{limit}</p><p className="mt-3 min-h-12 text-sm leading-6 text-slate-500">{description}</p><button type="button" disabled className="mt-6 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-500">Coming soon</button></section>)}</div></div>;
 }
 
 const LOGIN_REPORT_PERIODS = [
@@ -1277,7 +1277,7 @@ function LoginReports() {
   const maximumBucket = Math.max(1, ...(report?.series || []).map((item) => Number(item.login_count || 0)));
 
   return (
-    <div className="space-y-6">
+    <div className="feature-surface feature-reports space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">Admin analytics</p>
@@ -1843,7 +1843,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
             </div>
           )}
 
-          <div className="dashboard-customers mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="feature-surface feature-customers dashboard-customers mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="flex items-center gap-3 text-2xl font-bold text-slate-950"><span className="dashboard-section-icon">♧</span>Customers</h2>
