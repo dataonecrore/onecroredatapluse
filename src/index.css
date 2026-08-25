@@ -725,6 +725,10 @@ button {
     padding-left: 76px !important;
   }
 
+  .dashboard-header > div {
+    padding-left: 0 !important;
+  }
+
   .dashboard-sidebar > div:first-child {
     justify-content: center;
     min-height: 88px;
