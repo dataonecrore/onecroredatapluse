@@ -750,6 +750,24 @@ button {
     padding-right: 0;
     padding-left: 0;
   }
+
+  .dashboard-sidebar .dashboard-account-panel {
+    width: 60px;
+    margin-right: 0;
+    margin-left: 0;
+    padding: 4px;
+  }
+
+  .dashboard-sidebar .dashboard-account-item {
+    justify-content: center;
+    gap: 0;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .dashboard-sidebar .dashboard-account-item > span:not(:first-child) {
+    display: none;
+  }
 }
 
 @media (max-width: 1279px) {
@@ -790,6 +808,20 @@ button {
     justify-content: center;
     padding-right: 0;
     padding-left: 0;
+  }
+
+  .dashboard-mobile-drawer .dashboard-account-panel {
+    width: 60px;
+    margin-right: 0;
+    margin-left: 0;
+    padding: 4px;
+  }
+
+  .dashboard-mobile-drawer .dashboard-account-item {
+    justify-content: center;
+    gap: 0;
+    padding-right: 8px;
+    padding-left: 8px;
   }
 }
 
