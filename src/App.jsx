@@ -1672,7 +1672,6 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
       ]
     : [
         ["Dashboard", "▦"],
-        ["Follow-ups", "□"],
       ];
 
   const isCustomerSearchView = activeView === "Dashboard";
@@ -1714,7 +1713,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
   };
 
   useEffect(() => {
-    if (!isAdmin && (activeView === "Campaigns" || activeView === "Plans")) {
+    if (!isAdmin && activeView !== "Dashboard") {
       setActiveView("Dashboard");
     }
   }, [activeView, isAdmin]);
@@ -1855,7 +1854,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
             <Plans />
           ) : activeView === "Settings" ? (
             <Settings user={user} theme={theme} onThemeChange={onThemeChange} onUserUpdate={onUserUpdate} onLogout={onLogout} demoMode={demoMode} />
-          ) : activeView === "Follow-ups" ? (
+          ) : activeView === "Follow-ups" && isAdmin ? (
             <FollowUps apiFetch={apiFetch} apiBaseUrl={API_BASE_URL} demoMode={demoMode} />
           ) : isCustomerSearchView ? (
           <>
