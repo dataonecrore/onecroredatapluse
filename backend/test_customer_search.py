@@ -77,6 +77,36 @@ class CustomerSearchTests(unittest.TestCase):
         self.assertEqual(params["normalized_name"], "like.asha*")
         self.assertNotIn("address", params)
 
+    @patch("backend.main.requests.get")
+    def test_voter_id_search_uses_normalized_identity_column(self, request_get):
+        request_get.return_value = FakeResponse([])
+
+        main.search_customers(
+            q="AB 123",
+            field="voter_id",
+            limit=25,
+            cursor=None,
+            _={"id": "user"},
+        )
+
+        params = request_get.call_args.kwargs["params"]
+        self.assertEqual(params["normalized_voter_id"], "like.ab123*")
+
+    @patch("backend.main.requests.get")
+    def test_aadhar_search_uses_normalized_identity_column(self, request_get):
+        request_get.return_value = FakeResponse([])
+
+        main.search_customers(
+            q="1234 5678",
+            field="aadhar",
+            limit=25,
+            cursor=None,
+            _={"id": "user"},
+        )
+
+        params = request_get.call_args.kwargs["params"]
+        self.assertEqual(params["normalized_aadhar"], "like.12345678*")
+
 
 if __name__ == "__main__":
     unittest.main()

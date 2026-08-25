@@ -341,8 +341,15 @@ def normalize_phone_query(value: str) -> str:
     return normalized
 
 
-def resolve_search_field(value: str, requested_field: str) -> Literal["name", "phone"]:
-    if requested_field in {"name", "phone"}:
+def normalize_identity_query(value: str, label: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "", value.casefold())
+    if len(normalized) < 3:
+        raise ValueError(f"Enter at least 3 characters for an {label} search.")
+    return normalized
+
+
+def resolve_search_field(value: str, requested_field: str) -> Literal["name", "phone", "voter_id", "aadhar"]:
+    if requested_field in {"name", "phone", "voter_id", "aadhar"}:
         return requested_field
     return "name" if any(character.isalpha() for character in value) else "phone"
 
@@ -1649,18 +1656,22 @@ def get_customers(
 @app.get("/customers/search")
 def search_customers(
     q: str = Query(..., max_length=100),
-    field: Literal["auto", "name", "phone"] = "auto",
+    field: Literal["auto", "name", "phone", "voter_id", "aadhar"] = "auto",
     limit: int = Query(25, ge=1, le=50),
     cursor: Optional[int] = Query(None, ge=0),
     _: dict = Depends(get_current_user),
 ):
     resolved_field = resolve_search_field(q, field)
     try:
-        normalized_query = (
-            normalize_phone_query(q)
-            if resolved_field == "phone"
-            else normalize_name_query(q)
-        )
+        if resolved_field == "phone":
+            normalized_query = normalize_phone_query(q)
+        elif resolved_field == "name":
+            normalized_query = normalize_name_query(q)
+        else:
+            normalized_query = normalize_identity_query(
+                q,
+                "Voter ID" if resolved_field == "voter_id" else "Aadhar card",
+            )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
@@ -1673,8 +1684,11 @@ def search_customers(
         params["id"] = f"gt.{cursor}"
     if resolved_field == "phone":
         params["normalized_phone"] = f"like.{normalized_query}*"
-    else:
+    elif resolved_field == "name":
         params["normalized_name"] = f"like.{normalized_query}*"
+    else:
+        column = "normalized_voter_id" if resolved_field == "voter_id" else "normalized_aadhar"
+        params[column] = f"like.{normalized_query}*"
 
     response = requests.get(
         f"{REST_URL}/customers",

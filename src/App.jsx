@@ -1531,11 +1531,13 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
 
     if (demoMode) {
       const normalizedPhone = query.replace(/\D/g, "");
-      const matches = DEMO_CUSTOMERS.filter((customer) =>
-        resolvedField === "phone"
-          ? String(customer.phone || "").replace(/\D/g, "").startsWith(normalizedPhone)
-          : String(customer.name || "").toLowerCase().includes(query.toLowerCase())
-      );
+      const normalizedIdentity = query.replace(/[^a-z0-9]/gi, "").toLowerCase();
+      const matches = DEMO_CUSTOMERS.filter((customer) => {
+        if (resolvedField === "phone") return String(customer.phone || "").replace(/\D/g, "").startsWith(normalizedPhone);
+        if (resolvedField === "voter_id") return String(customer.voter_id_number || "").replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(normalizedIdentity);
+        if (resolvedField === "aadhar") return String(customer.aadhar_card_number || "").replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(normalizedIdentity);
+        return String(customer.name || "").toLowerCase().includes(query.toLowerCase());
+      });
       setCustomers(matches);
       setNextCursor(null);
       setHasSearched(true);
@@ -1904,19 +1906,25 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                   <option value="auto">Name or phone</option>
                   <option value="name">Customer name</option>
                   <option value="phone">Phone number</option>
+                  <option value="voter_id">Voter ID number</option>
+                  <option value="aadhar">Aadhar card number</option>
                 </select>
                 <label className="sr-only" htmlFor="customer-search-query">Search customers</label>
                 <input
                   id="customer-search-query"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  inputMode={searchField === "phone" ? "tel" : "search"}
+                  inputMode={searchField === "phone" || searchField === "aadhar" ? "tel" : "search"}
                   autoComplete="off"
                   placeholder={
                     searchField === "auto"
                       ? "Search by name or phone"
                       : searchField === "phone"
                         ? "Enter at least 3 digits"
+                        : searchField === "voter_id"
+                          ? "Enter at least 3 characters"
+                          : searchField === "aadhar"
+                            ? "Enter at least 3 digits"
                         : "Enter at least 2 characters"
                   }
                   className="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 sm:w-72"
