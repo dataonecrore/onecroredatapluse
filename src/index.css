@@ -800,6 +800,12 @@ button {
   }
 }
 
+@media (min-width: 641px) and (max-width: 1279px) {
+  .dashboard-header > div {
+    padding-left: 0 !important;
+  }
+}
+
 @media (max-width: 1279px) {
   .dashboard-mobile-drawer {
     width: 76px;
