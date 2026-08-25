@@ -299,6 +299,15 @@ button {
   box-shadow: 0 10px 24px rgba(31, 64, 140, 0.1);
 }
 
+.dashboard-account-panel-heading {
+  display: none;
+}
+
+.dashboard-account-panel-chevron {
+  font-size: 28px;
+  line-height: 1;
+}
+
 .dashboard-account-item {
   display: flex;
   width: 100%;
@@ -709,6 +718,7 @@ button {
 @media (min-width: 1024px) and (max-width: 1279px) {
   .dashboard-sidebar {
     width: 76px !important;
+    overflow: visible;
   }
 
   .dashboard-main {
@@ -752,27 +762,44 @@ button {
   }
 
   .dashboard-sidebar .dashboard-account-panel {
-    width: 60px;
-    margin-right: 0;
-    margin-left: 0;
-    padding: 4px;
+    position: absolute;
+    right: auto;
+    bottom: 64px;
+    left: calc(100% + 12px);
+    z-index: 50;
+    width: 374px;
+    margin: 0;
+    padding: 14px 24px 18px;
+    border-radius: 24px;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
   }
 
-  .dashboard-sidebar .dashboard-account-item {
-    justify-content: center;
-    gap: 0;
-    padding-right: 8px;
-    padding-left: 8px;
+  .dashboard-sidebar .dashboard-account-panel-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 70px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e5e7eb;
   }
 
-  .dashboard-sidebar .dashboard-account-item > span:not(:first-child) {
-    display: none;
+  .dashboard-sidebar .dashboard-account-panel .dashboard-account-item {
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 52px;
+    padding: 8px 10px;
+    font-size: 18px;
+  }
+
+  .dashboard-sidebar .dashboard-account-panel .dashboard-account-item > span:not(:first-child) {
+    display: inline;
   }
 }
 
 @media (max-width: 1279px) {
   .dashboard-mobile-drawer {
     width: 76px;
+    overflow: visible;
   }
 
   .dashboard-mobile-drawer > div:first-child {
@@ -811,17 +838,37 @@ button {
   }
 
   .dashboard-mobile-drawer .dashboard-account-panel {
-    width: 60px;
-    margin-right: 0;
-    margin-left: 0;
-    padding: 4px;
+    position: absolute;
+    right: auto;
+    bottom: 64px;
+    left: 12px;
+    z-index: 50;
+    width: min(374px, calc(100vw - 28px));
+    margin: 0;
+    padding: 14px 24px 18px;
+    border-radius: 24px;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
   }
 
-  .dashboard-mobile-drawer .dashboard-account-item {
-    justify-content: center;
-    gap: 0;
-    padding-right: 8px;
-    padding-left: 8px;
+  .dashboard-mobile-drawer .dashboard-account-panel-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 70px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .dashboard-mobile-drawer .dashboard-account-panel .dashboard-account-item {
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 52px;
+    padding: 8px 10px;
+    font-size: 18px;
+  }
+
+  .dashboard-mobile-drawer .dashboard-account-panel .dashboard-account-item > span:not(:first-child) {
+    display: inline;
   }
 }
 

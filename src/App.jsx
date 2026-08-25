@@ -1459,6 +1459,14 @@ function AccountMenu({ displayName, avatarInitials, isAdmin, onSelectView, onLog
 
       {accountMenuOpen && (
         <div className="dashboard-account-panel">
+          <div className="dashboard-account-panel-heading">
+            <div className="dashboard-avatar">{avatarInitials}</div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-semibold">{displayName}</p>
+              <p className="text-sm text-slate-500">{isAdmin ? "Admin account" : "Personal account"}</p>
+            </div>
+            <span className="dashboard-account-panel-chevron" aria-hidden="true">›</span>
+          </div>
           <button type="button" className="dashboard-account-item" onClick={() => onSelectView("Settings")}>
             <span aria-hidden="true">◌</span><span>Personalization</span>
           </button>
