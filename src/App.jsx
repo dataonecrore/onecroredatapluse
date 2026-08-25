@@ -1926,6 +1926,10 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                         {[
                           "Name",
                           "Phone Number",
+                          "Father Name",
+                          "Voter ID Number",
+                          "Aadhar Card Number",
+                          "Email",
                           "Address",
                         ].map((heading) => (
                           <th
