@@ -295,6 +295,9 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
     customer || {
       name: "",
       email: "",
+      father_name: "",
+      voter_id_number: "",
+      aadhar_card_number: "",
       phone: "",
       whatsapp_phone: "",
       address: "",
@@ -328,6 +331,9 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
       await onSave({
         name: form.name,
         email: form.email?.trim() || null,
+        father_name: form.father_name?.trim() || null,
+        voter_id_number: form.voter_id_number?.trim() || null,
+        aadhar_card_number: form.aadhar_card_number?.trim() || null,
         phone: form.phone || "",
         whatsapp_phone: form.whatsapp_phone || "",
         address: form.address || "",
@@ -380,6 +386,22 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
               placeholder="customer@example.com"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Father name (optional)</label>
+              <input value={form.father_name || ""} onChange={(e) => updateField("father_name", e.target.value)} placeholder="Father's full name" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Voter ID number (optional)</label>
+              <input value={form.voter_id_number || ""} onChange={(e) => updateField("voter_id_number", e.target.value)} placeholder="Voter ID number" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 uppercase outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-slate-700">Aadhar card number (optional)</label>
+            <input inputMode="numeric" value={form.aadhar_card_number || ""} onChange={(e) => updateField("aadhar_card_number", e.target.value)} placeholder="12-digit Aadhar number" maxLength={12} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" />
           </div>
 
           <div>
@@ -488,6 +510,9 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
           {[
             ["Name", customer.name],
             ["Email", customer.email || "-"],
+            ["Father name", customer.father_name || "-"],
+            ["Voter ID number", customer.voter_id_number || "-"],
+            ["Aadhar card number", customer.aadhar_card_number || "-"],
             ["Phone", customer.phone || "-"],
             ["WhatsApp", customer.whatsapp_phone || "-"],
             ["Address", customer.address || "-"],
@@ -518,6 +543,10 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
           >
             {deleting ? "Deleting..." : "Delete"}
           </button>
+                          "Father Name",
+                          "Voter ID Number",
+                          "Aadhar Card Number",
+                          "Email",
 
           <button
             onClick={onClose}
@@ -1920,6 +1949,11 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                             {customer.phone || "-"}
                           </td>
 
+                          <td className="px-5 py-4 text-sm text-slate-600">{customer.father_name || "-"}</td>
+                          <td className="px-5 py-4 text-sm text-slate-600">{customer.voter_id_number || "-"}</td>
+                          <td className="px-5 py-4 text-sm text-slate-600">{customer.aadhar_card_number || "-"}</td>
+                          <td className="px-5 py-4 text-sm text-slate-600">{customer.email || "-"}</td>
+
                           <td className="px-5 py-4 text-sm text-slate-600">
                             <div className="dashboard-address-cell">
                               <span>{customer.address || "-"}</span>
@@ -1961,6 +1995,10 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                           <span className="font-medium text-slate-700">Phone Number:</span>{" "}
                           {customer.phone || "-"}
                         </p>
+                        <p><span className="font-medium text-slate-700">Father Name:</span>{" "}{customer.father_name || "-"}</p>
+                        <p><span className="font-medium text-slate-700">Voter ID Number:</span>{" "}{customer.voter_id_number || "-"}</p>
+                        <p><span className="font-medium text-slate-700">Aadhar Card Number:</span>{" "}{customer.aadhar_card_number || "-"}</p>
+                        <p><span className="font-medium text-slate-700">Email:</span>{" "}{customer.email || "-"}</p>
                         <p className="dashboard-address-cell">
                           <span><span className="font-medium text-slate-700">Address:</span>{" "}{customer.address || "-"}</span>
                           {customer.address && (
