@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FollowUps } from "./FollowUps";
+import { LayoutDashboard } from "lucide-react";
 
 const PUBLIC_API_BASE_URL = "https://onecroredatapluse-production.up.railway.app";
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -1670,7 +1671,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
 
   const navItems = isAdmin
     ? [
-        ["Dashboard", "▦"],
+        ["Dashboard", <LayoutDashboard size={20} strokeWidth={2.2} />],
         ["Customers", "♧"],
         ["Import Customers", "☁"],
         ["Follow-ups", "□"],
@@ -1679,7 +1680,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
         ["Plans", "◇"],
       ]
     : [
-        ["Dashboard", "▦"],
+        ["Dashboard", <LayoutDashboard size={20} strokeWidth={2.2} />],
       ];
 
   const isCustomerSearchView = activeView === "Dashboard";
