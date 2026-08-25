@@ -1738,6 +1738,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
           {navItems.map(([item, icon]) => (
             <button
               key={item}
+              title={item}
+              aria-label={item}
               onClick={() => selectView(item)}
               className={`dashboard-nav-item flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
                 activeView === item ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
@@ -1780,6 +1782,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
               {navItems.map(([item, icon]) => (
                 <button
                   key={item}
+                  title={item}
+                  aria-label={item}
                   className={`dashboard-nav-item flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
                     activeView === item ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"
                   }`}

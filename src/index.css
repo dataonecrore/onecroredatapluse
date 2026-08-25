@@ -706,6 +706,103 @@ button {
   }
 }
 
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .dashboard-sidebar {
+    width: 76px !important;
+  }
+
+  .dashboard-main {
+    padding-left: 76px !important;
+  }
+
+  .dashboard-sidebar > div:first-child {
+    justify-content: center;
+    min-height: 88px;
+    padding: 16px 8px;
+  }
+
+  .dashboard-sidebar > div:first-child > div:last-child,
+  .dashboard-sidebar .dashboard-nav-item > span:nth-child(2),
+  .dashboard-sidebar .dashboard-nav-arrow,
+  .dashboard-sidebar .dashboard-profile > div:nth-child(2),
+  .dashboard-sidebar .dashboard-profile > .dashboard-account-chevron {
+    display: none;
+  }
+
+  .dashboard-sidebar .dashboard-nav {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .dashboard-sidebar .dashboard-nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .dashboard-sidebar > .mt-auto {
+    padding: 8px;
+  }
+
+  .dashboard-sidebar .dashboard-profile {
+    justify-content: center;
+    padding-right: 0;
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 1279px) {
+  .dashboard-mobile-drawer {
+    width: 76px;
+  }
+
+  .dashboard-mobile-drawer > div:first-child {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .dashboard-mobile-drawer > div:first-child > div:last-child,
+  .dashboard-mobile-drawer .dashboard-nav-item > span:last-child,
+  .dashboard-mobile-drawer .dashboard-account-item > span:not(:first-child),
+  .dashboard-mobile-drawer .dashboard-profile > div:nth-child(2),
+  .dashboard-mobile-drawer .dashboard-profile > .dashboard-account-chevron {
+    display: none;
+  }
+
+  .dashboard-mobile-drawer .dashboard-nav {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .dashboard-mobile-drawer .dashboard-nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .dashboard-mobile-drawer > div:last-child {
+    padding: 8px;
+  }
+
+  .dashboard-mobile-drawer .dashboard-profile {
+    justify-content: center;
+    padding-right: 0;
+    padding-left: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .dashboard-sidebar {
+    width: 276px !important;
+  }
+
+  .dashboard-main {
+    padding-left: 276px !important;
+  }
+}
+
 @media (min-width: 1024px) and (max-height: 920px) {
   .dashboard-sidebar > div:first-child {
     padding-top: 16px;
