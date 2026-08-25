@@ -713,6 +713,10 @@ button {
   .dashboard-main {
     padding-left: 276px !important;
   }
+
+  .dashboard-header > div {
+    padding-left: 0 !important;
+  }
 }
 
 @media (min-width: 1024px) and (max-width: 1279px) {
@@ -723,10 +727,6 @@ button {
 
   .dashboard-main {
     padding-left: 76px !important;
-  }
-
-  .dashboard-header > div {
-    padding-left: 0 !important;
   }
 
   .dashboard-sidebar > div:first-child {
