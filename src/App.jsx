@@ -646,7 +646,13 @@ function CustomerImport() {
         setJob(currentJob);
       }
     } catch (uploadError) {
-      setError(uploadError.message || "Unable to upload file.");
+      if (uploadError instanceof TypeError && uploadError.message === "Failed to fetch") {
+        setError(
+          `Unable to reach the import API at ${API_BASE_URL}. Check your connection, sign in again, and confirm the deployed frontend allows this API origin.`
+        );
+      } else {
+        setError(uploadError.message || "Unable to upload file.");
+      }
     } finally {
       setUploading(false);
     }

@@ -1026,6 +1026,16 @@ def update_import_job(job_id, **updates):
     }
 
 
+def format_import_error(error):
+    message = str(error)
+    if "relationship_type" in message or "relationship_name" in message:
+        return (
+            "Customer relationship columns are not available in the database. "
+            "Apply the latest Supabase migrations and retry the import."
+        )
+    return message
+
+
 def normalize_import_header(value):
     header = re.sub(r"[^a-z0-9]+", " ", str(value or "").replace("_", " ").lower())
     header = re.sub(r"\s+", " ", header).strip()
@@ -1186,7 +1196,7 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
             message=f"Import complete: {created} added, {updated} updated, {skipped} skipped.",
         )
     except Exception as error:
-        update_import_job(job_id, status="failed", message=str(error))
+        update_import_job(job_id, status="failed", message=format_import_error(error))
     finally:
         file_path.unlink(missing_ok=True)
 
