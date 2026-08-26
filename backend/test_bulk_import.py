@@ -9,6 +9,7 @@ from backend.bulk_import import (
     file_sha256,
     iter_file_batches,
     iter_batches,
+    canonicalize_headers,
     normalized_phone,
     parse_customer_row,
     validate_headers,
@@ -38,6 +39,22 @@ CONFIRMED_COLUMNS = {
 
 
 class BulkImportTests(unittest.TestCase):
+    def test_customer_adress_header_maps_to_configured_address_column(self):
+        headers = canonicalize_headers(
+            ["Customer Name", "Customer Phone", "Customer Adress", "City", "State", "PIN Code"],
+            {
+                "name": "Customer Name",
+                "phone": "Customer Phone",
+                "address": "Customer Address",
+                "city": "City",
+                "state": "State",
+                "pin_code": "PIN Code",
+                "source_id": None,
+            },
+        )
+
+        self.assertEqual(headers[2], "Customer Address")
+
     def test_staged_insert_targets_live_name_column(self):
         class Cursor:
             statement = ""

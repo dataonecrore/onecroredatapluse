@@ -22,6 +22,12 @@ from typing import Iterator, TextIO
 VALID_DUPLICATE_MODES = ("preserve", "skip-phone")
 PHONE_DIGITS = re.compile(r"\D+")
 WHITESPACE = re.compile(r"\s+")
+HEADER_ALIASES = {
+    "adress": "address",
+    "customer adress": "customer address",
+    "address line": "address",
+    "address line 1": "address",
+}
 
 
 @dataclass(frozen=True)
@@ -64,6 +70,25 @@ def validate_headers(fieldnames: list[str] | None, columns: dict[str, str | None
         raise ValueError(f"CSV is missing configured column(s): {', '.join(missing)}")
 
 
+def canonicalize_headers(
+    fieldnames: list[object] | tuple[object, ...] | None,
+    columns: dict[str, str | None],
+) -> list[object] | None:
+    if fieldnames is None:
+        return None
+    configured = {
+        re.sub(r"[^a-z0-9]+", " ", str(column).lower()).strip(): column
+        for column in columns.values()
+        if column
+    }
+    canonical = []
+    for fieldname in fieldnames:
+        key = re.sub(r"[^a-z0-9]+", " ", str(fieldname).lower()).strip()
+        key = HEADER_ALIASES.get(key, key)
+        canonical.append(configured.get(key, fieldname))
+    return canonical
+
+
 def parse_customer_row(
     row: dict[str, str | None], source_row: int, columns: dict[str, str | None]
 ) -> CustomerRow | RejectedRow:
@@ -99,6 +124,7 @@ def iter_batches(
     after_source_row: int = 0,
 ) -> Iterator[tuple[list[CustomerRow], list[RejectedRow], int]]:
     reader = csv.DictReader(source)
+    reader.fieldnames = canonicalize_headers(reader.fieldnames, columns)
     validate_headers(reader.fieldnames, columns)
     accepted: list[CustomerRow] = []
     rejected: list[RejectedRow] = []
@@ -151,7 +177,7 @@ def iter_file_batches(
         raise ValueError("Supported production files are CSV, XLS, and XLSX")
 
     try:
-        headers = next(rows, None)
+        headers = canonicalize_headers(next(rows, None), columns)
         validate_headers(headers, columns)
         accepted: list[CustomerRow] = []
         rejected: list[RejectedRow] = []
