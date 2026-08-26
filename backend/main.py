@@ -39,6 +39,7 @@ REST_URL = f"{SUPABASE_URL}/rest/v1"
 AUTH_URL = f"{SUPABASE_URL}/auth/v1"
 DEFAULT_FRONTEND_URL = "https://onecroredatapluse.vercel.app"
 VERCEL_FRONTEND_ORIGIN_REGEX = r"^https://onecroredatapluse(?:-[a-z0-9-]+)?\.vercel\.app$"
+LOCAL_FRONTEND_ORIGIN_REGEX = r"^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?$"
 
 
 def resolve_frontend_url(
@@ -136,11 +137,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    FRONTEND_URL,
-],
-    allow_origin_regex=VERCEL_FRONTEND_ORIGIN_REGEX,
+        FRONTEND_URL,
+    ],
+    allow_origin_regex=f"(?:{VERCEL_FRONTEND_ORIGIN_REGEX})|(?:{LOCAL_FRONTEND_ORIGIN_REGEX})",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

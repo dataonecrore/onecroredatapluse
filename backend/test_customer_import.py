@@ -31,6 +31,23 @@ class CustomerImportTests(unittest.TestCase):
             "https://onecroredatapluse-git-main-dataonecrore.vercel.app",
         )
 
+    def test_local_vite_preview_ports_are_allowed_by_cors(self):
+        with TestClient(main.app) as client:
+            response = client.options(
+                "/imports/customers",
+                headers={
+                    "Origin": "http://localhost:5174",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "authorization",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["access-control-allow-origin"],
+            "http://localhost:5174",
+        )
+
     def test_confirmed_headers_map_to_customer_fields(self):
         row = main.normalize_import_row(
             {
