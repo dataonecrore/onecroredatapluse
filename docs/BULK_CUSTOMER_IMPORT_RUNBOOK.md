@@ -7,8 +7,9 @@ committed source row. It does not upload the source file through the browser.
 ## Before importing
 
 1. Keep the original source file unchanged while a job is running or resuming.
-2. Export Excel data to UTF-8 CSV. The production importer intentionally rejects
-   `.xlsx` and `.xls` files.
+2. For the fastest and most reliable import, export Excel data to UTF-8 CSV.
+  The direct importer also streams `.xlsx` and `.xls` files without loading the
+  entire workbook into memory, but CSV remains preferable for very large jobs.
 3. The confirmed source headers are `Customer Name`, `Customer Phone`,
    `Customer Address`, `City`, `State`, and `PIN Code`. Fields containing commas,
    especially `Customer Address`, must be CSV-quoted.
@@ -44,6 +45,9 @@ address, city, state, PIN code.
 
 The default batch size is 50,000 source rows. Start with a 10,000-row copy of
 the real file and measure database load and search latency before the full run.
+For millions of rows, run this command from a stable machine near the database
+region; do not use the browser upload path unless it is only queuing a
+controlled chunk.
 
 ## Resume
 

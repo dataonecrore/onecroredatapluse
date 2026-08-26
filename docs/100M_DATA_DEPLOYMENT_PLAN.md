@@ -8,7 +8,7 @@ One crore means 10 million records. The longer-term target of 100M records shoul
 - Customer reads go through FastAPI; the browser does not receive the service-role key.
 - Search uses normalized phone and name columns with cursor pagination.
 - Production imports use `backend/bulk_import.py`, a direct Postgres connection, bounded `COPY` batches, transactions, SHA-256 verification, and resumable checkpoints.
-- The website upload endpoint streams files to disk. Files above the small-validation threshold are routed to the direct PostgreSQL `COPY` importer when `SUPABASE_DB_URL` is configured; they must be CSV and use New mode with phone duplicate handling.
+- The website upload endpoint streams files to disk. Files above the small-validation threshold are routed to the direct PostgreSQL `COPY` importer when `SUPABASE_DB_URL` is configured; CSV is preferred, while XLS/XLSX are streamed row-by-row, and all use New mode with phone duplicate handling.
 
 ## Required loading model
 
@@ -18,7 +18,7 @@ The website is a control surface, not a high-volume API writer. For a 30M-row lo
 
 Recommended process:
 
-1. Export source data as UTF-8 CSV and split it into immutable chunks, preferably 250,000 to 1,000,000 source rows each.
+1. Prefer exporting source data as UTF-8 CSV and split it into immutable chunks, preferably 250,000 to 1,000,000 source rows each. XLS/XLSX can be streamed, but CSV has lower parsing overhead at this scale.
 2. Record a manifest containing chunk filename, row count, byte size, SHA-256 checksum, source date, and import status.
 3. Apply and verify the Supabase migrations before loading customer data.
 4. Import one chunk with `python -m backend.bulk_import` and an explicit duplicate mode.

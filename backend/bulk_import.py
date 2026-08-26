@@ -52,8 +52,8 @@ def normalized_phone(value: str) -> str:
     return PHONE_DIGITS.sub("", value or "")
 
 
-def clean_text(value: str | None) -> str:
-    return WHITESPACE.sub(" ", value or "").strip()
+def clean_text(value: object | None) -> str:
+    return WHITESPACE.sub(" ", str(value or "")).strip()
 
 
 def validate_headers(fieldnames: list[str] | None, columns: dict[str, str | None]) -> None:
@@ -119,6 +119,62 @@ def iter_batches(
 
     if accepted or rejected:
         yield accepted, rejected, batch_end
+
+
+def iter_file_batches(
+    source_path: Path,
+    columns: dict[str, str | None],
+    batch_size: int,
+    encoding: str = "utf-8-sig",
+    after_source_row: int = 0,
+) -> Iterator[tuple[list[CustomerRow], list[RejectedRow], int]]:
+    """Stream CSV or Excel rows without loading the complete file."""
+    extension = source_path.suffix.lower()
+    if extension == ".csv":
+        with source_path.open("r", encoding=encoding, newline="") as source:
+            yield from iter_batches(source, columns, batch_size, after_source_row)
+        return
+
+    if extension == ".xlsx":
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(source_path, read_only=True, data_only=True)
+        sheet = workbook.active
+        rows = sheet.iter_rows(values_only=True)
+    elif extension == ".xls":
+        import xlrd
+
+        workbook = xlrd.open_workbook(source_path, on_demand=True)
+        sheet = workbook.sheet_by_index(0)
+        rows = (sheet.row_values(row_index) for row_index in range(sheet.nrows))
+    else:
+        raise ValueError("Supported production files are CSV, XLS, and XLSX")
+
+    try:
+        headers = next(rows, None)
+        validate_headers(headers, columns)
+        accepted: list[CustomerRow] = []
+        rejected: list[RejectedRow] = []
+        batch_end = after_source_row
+        for source_row, values in enumerate(rows, start=1):
+            if source_row <= after_source_row:
+                continue
+            parsed = parse_customer_row(dict(zip(headers, values)), source_row, columns)
+            if isinstance(parsed, CustomerRow):
+                accepted.append(parsed)
+            else:
+                rejected.append(parsed)
+            batch_end = source_row
+            if len(accepted) + len(rejected) >= batch_size:
+                yield accepted, rejected, batch_end
+                accepted, rejected = [], []
+        if accepted or rejected:
+            yield accepted, rejected, batch_end
+    finally:
+        if extension == ".xlsx":
+            workbook.close()
+        else:
+            workbook.release_resources()
 
 
 def _create_temp_staging(cursor) -> None:
@@ -253,8 +309,8 @@ def import_csv(args: argparse.Namespace) -> uuid.UUID:
         raise RuntimeError("Install backend requirements before running the importer") from exc
 
     source_path = Path(args.file).expanduser().resolve(strict=True)
-    if source_path.suffix.lower() != ".csv":
-        raise ValueError("Production bulk import supports CSV files only")
+    if source_path.suffix.lower() not in {".csv", ".xls", ".xlsx"}:
+        raise ValueError("Production bulk import supports CSV, XLS, and XLSX files")
     source_hash = file_sha256(source_path)
     requested_job_id = uuid.UUID(args.job_id) if args.job_id else None
     columns = {
@@ -293,10 +349,9 @@ def import_csv(args: argparse.Namespace) -> uuid.UUID:
                 connection.commit()
 
             last_row = int(job[4])
-            with source_path.open("r", encoding=args.encoding, newline="") as source:
-                for accepted, rejected, batch_end in iter_batches(
-                    source, columns, args.batch_size, last_row
-                ):
+            for accepted, rejected, batch_end in iter_file_batches(
+                source_path, columns, args.batch_size, args.encoding, last_row
+            ):
                     with connection.cursor() as cursor:
                         _create_temp_staging(cursor)
                         _copy_rows(cursor, accepted)

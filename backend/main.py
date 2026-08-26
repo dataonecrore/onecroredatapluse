@@ -72,6 +72,7 @@ IMPORT_DIR.mkdir(exist_ok=True)
 SMALL_IMPORT_SIZE = 100 * 1024 * 1024
 MAX_IMPORT_SIZE = int(os.getenv("MAX_IMPORT_SIZE_BYTES", str(5 * 1024 * 1024 * 1024)))
 ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
+IMPORT_REQUEST_BATCH_SIZE = 250
 import_jobs = {}
 
 IMPORT_HEADER_ALIASES = {
@@ -1111,22 +1112,38 @@ def read_import_rows(file_path: Path, extension: str):
     ]
 
 
-def find_duplicate(customer, duplicate_keys):
+def _find_duplicates_batch(session, customers, duplicate_keys):
+    duplicate_ids = {}
     for key in duplicate_keys:
-        value = customer.get(key)
-        if not value:
-            continue
-        response = requests.get(
-            f"{REST_URL}/customers?{key}=eq.{quote(value, safe='')}&select=id",
-            headers=HEADERS,
-            timeout=10,
-        )
-        if response.status_code != 200:
-            raise ValueError(f"Unable to check duplicate {key}: {response.text}")
-        data = response.json()
-        if data:
-            return data[0]["id"]
-    return None
+        values = sorted({customer.get(key) for customer in customers if customer.get(key)})
+        for start in range(0, len(values), IMPORT_REQUEST_BATCH_SIZE):
+            value_chunk = values[start : start + IMPORT_REQUEST_BATCH_SIZE]
+            encoded_values = ",".join(quote(value, safe="") for value in value_chunk)
+            response = session.get(
+                f"{REST_URL}/customers?{key}=in.({encoded_values})&select=id,{key}",
+                headers=HEADERS,
+                timeout=10,
+            )
+            if response.status_code != 200:
+                raise ValueError(f"Unable to check duplicate {key}: {response.text}")
+            matches = {str(item.get(key)): item["id"] for item in response.json()}
+            for index, customer in enumerate(customers):
+                if index not in duplicate_ids and customer.get(key) in matches:
+                    duplicate_ids[index] = matches[customer[key]]
+    return duplicate_ids
+
+
+def _create_customers_batch(session, customers):
+    if not customers:
+        return
+    response = session.post(
+        f"{REST_URL}/customers",
+        headers=HEADERS,
+        json=customers,
+        timeout=30,
+    )
+    if response.status_code not in (200, 201):
+        raise ValueError(response.text)
 
 
 def import_customers(job_id: str, file_path: Path, extension: str, import_mode: str, duplicate_keys: str):
@@ -1144,44 +1161,48 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
         allowed_fields = {"name", "email", "relationship_type", "relationship_name", "voter_id_number", "aadhar_card_number", "phone", "whatsapp_phone", "address", "company", "status", "notes"}
 
-        for row in rows:
-            processed += 1
-            customer = {key: row[key] for key in allowed_fields if row.get(key)}
-            if not customer.get("name") or not customer.get("phone"):
-                invalid += 1
-                continue
+        with requests.Session() as session:
+            for start in range(0, len(rows), IMPORT_REQUEST_BATCH_SIZE):
+                row_chunk = rows[start : start + IMPORT_REQUEST_BATCH_SIZE]
+                customers = [
+                    {key: row[key] for key in allowed_fields if row.get(key)}
+                    for row in row_chunk
+                ]
+                valid_customers = []
+                for customer in customers:
+                    if not customer.get("name") or not customer.get("phone"):
+                        invalid += 1
+                    else:
+                        valid_customers.append(customer)
 
-            customer_id = find_duplicate(customer, selected_keys)
-            if customer_id and import_mode == "new":
-                skipped += 1
-                continue
+                duplicate_ids = _find_duplicates_batch(session, valid_customers, selected_keys)
+                new_customers = []
+                for index, customer in enumerate(valid_customers):
+                    customer_id = duplicate_ids.get(index)
+                    if customer_id and import_mode == "new":
+                        skipped += 1
+                    elif customer_id:
+                        response = session.patch(
+                            f"{REST_URL}/customers?id=eq.{quote(str(customer_id), safe='')}",
+                            headers=HEADERS,
+                            json=customer,
+                            timeout=10,
+                        )
+                        if response.status_code not in (200, 204):
+                            raise ValueError(response.text)
+                        updated += 1
+                    else:
+                        new_customers.append(customer)
 
-            if customer_id:
-                response = requests.patch(
-                    f"{REST_URL}/customers?id=eq.{quote(str(customer_id), safe='')}",
-                    headers=HEADERS,
-                    json=customer,
-                    timeout=10,
+                _create_customers_batch(session, new_customers)
+                created += len(new_customers)
+                processed += len(row_chunk)
+                update_import_job(
+                    job_id,
+                    processed=processed,
+                    invalid=invalid,
+                    progress=round(processed / len(rows) * 100),
                 )
-                updated += 1
-            else:
-                response = requests.post(
-                    f"{REST_URL}/customers",
-                    headers=HEADERS,
-                    json=customer,
-                    timeout=10,
-                )
-                created += 1
-
-            if response.status_code not in (200, 201, 204):
-                raise ValueError(response.text)
-
-            update_import_job(
-                job_id,
-                processed=processed,
-                invalid=invalid,
-                progress=round(processed / len(rows) * 100),
-            )
 
         update_import_job(
             job_id,
@@ -1271,9 +1292,6 @@ async def upload_customers(
         "message": "File uploaded. Validating rows...",
     }
     if total_bytes > SMALL_IMPORT_SIZE:
-        if extension != ".csv":
-            destination.unlink(missing_ok=True)
-            raise HTTPException(status_code=400, detail="Large production imports must be UTF-8 CSV files.")
         if not os.getenv("SUPABASE_DB_URL"):
             destination.unlink(missing_ok=True)
             raise HTTPException(status_code=503, detail="Configure SUPABASE_DB_URL for large production imports.")
@@ -1283,7 +1301,7 @@ async def upload_customers(
                 status_code=400,
                 detail="Large imports require New mode with phone duplicate handling.",
             )
-        import_jobs[job_id]["message"] = "Queued for PostgreSQL COPY import."
+        import_jobs[job_id]["message"] = "Queued for streaming PostgreSQL COPY import."
         background_tasks.add_task(import_customers_with_copy, job_id, destination, "skip-phone")
     else:
         background_tasks.add_task(

@@ -7,6 +7,7 @@ from backend.bulk_import import (
     CustomerRow,
     RejectedRow,
     file_sha256,
+    iter_file_batches,
     iter_batches,
     normalized_phone,
     parse_customer_row,
@@ -137,6 +138,24 @@ class BulkImportTests(unittest.TestCase):
             path = Path(directory) / "customers.csv"
             path.write_bytes(b"customer_name,phone,address\nA,123,X\n")
             self.assertEqual(file_sha256(path), file_sha256(path))
+
+    def test_xlsx_rows_are_streamed_in_batches(self):
+        from openpyxl import Workbook
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "customers.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.append(["Customer Name", "Customer Phone", "Customer Address", "City", "State", "PIN Code"])
+            sheet.append(["First", 111, "One", "Pune", "Maharashtra", 411001])
+            sheet.append(["Second", 222, "Two", "Delhi", "Delhi", 110001])
+            workbook.save(path)
+
+            batches = list(iter_file_batches(path, CONFIRMED_COLUMNS, batch_size=1))
+
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(batches[0][0][0].customer_name, "First")
+        self.assertEqual(batches[1][0][0].source_row, 2)
 
 
 if __name__ == "__main__":

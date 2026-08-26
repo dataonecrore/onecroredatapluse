@@ -14,6 +14,59 @@ from backend import main
 
 
 class CustomerImportTests(unittest.TestCase):
+    def test_duplicate_lookup_batches_values_by_key(self):
+        class Response:
+            status_code = 200
+
+            def __init__(self, data):
+                self.data = data
+
+            def json(self):
+                return self.data
+
+        class Session:
+            def __init__(self):
+                self.calls = []
+
+            def get(self, url, **kwargs):
+                self.calls.append(url)
+                if "phone=in." in url:
+                    return Response([{"id": 11, "phone": "9000000001"}])
+                return Response([{"id": 12, "email": "aarav@example.com"}])
+
+        session = Session()
+        customers = [
+            {"name": "Aarav", "phone": "9000000001", "email": "aarav@example.com"},
+            {"name": "Priya", "phone": "9000000002", "email": "priya@example.com"},
+        ]
+
+        duplicate_ids = main._find_duplicates_batch(session, customers, ["phone", "email"])
+
+        self.assertEqual(duplicate_ids, {0: 11})
+        self.assertEqual(len(session.calls), 2)
+
+    def test_customer_creation_sends_one_batch(self):
+        class Response:
+            status_code = 201
+
+            def __init__(self):
+                self.text = ""
+
+        class Session:
+            def __init__(self):
+                self.payload = None
+
+            def post(self, url, **kwargs):
+                self.payload = kwargs["json"]
+                return Response()
+
+        session = Session()
+        customers = [{"name": "Aarav", "phone": "9000000001"}]
+
+        main._create_customers_batch(session, customers)
+
+        self.assertEqual(session.payload, customers)
+
     def test_vercel_preview_origins_are_allowed_by_cors(self):
         with TestClient(main.app) as client:
             response = client.options(
