@@ -195,6 +195,22 @@ class CustomerImportTests(unittest.TestCase):
             "12, Lake View Road, Banjara Hills, Hyderabad, Telangana, 500034",
         )
 
+    def test_xlsx_rows_can_be_iterated_without_eager_loading(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "streamed_customers.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.append(["Customer Name", "Customer Phone"])
+            sheet.append(["Aarav Sharma", 9000000001])
+            workbook.save(path)
+
+            rows = main.iter_import_rows(path, ".xlsx")
+            first_row = next(rows)
+            rows.close()
+
+        self.assertEqual(first_row["name"], "Aarav Sharma")
+        self.assertEqual(first_row["phone"], "9000000001")
+
     def test_xlsx_with_display_headers_is_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "display_headers.xlsx"

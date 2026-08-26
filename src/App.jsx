@@ -693,7 +693,7 @@ function CustomerImport() {
           <span className="mt-3 font-semibold text-slate-900">
             {file ? file.name : "Choose a customer file"}
           </span>
-          <span className="mt-1 text-sm text-slate-500">CSV, XLS, or XLSX for validation; large production imports require CSV and New mode</span>
+          <span className="mt-1 text-sm text-slate-500">CSV, XLS, or XLSX; large imports use New mode with phone duplicate handling</span>
           <input
             type="file"
             accept=".csv,.xls,.xlsx"

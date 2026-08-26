@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 import io
+from itertools import chain, islice
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from email.message import EmailMessage
@@ -1090,6 +1091,46 @@ def normalize_import_row(row):
     return normalized
 
 
+def iter_import_rows(file_path: Path, extension: str):
+    if extension == ".csv":
+        with file_path.open("r", encoding="utf-8-sig", newline="") as file:
+            reader = csv.DictReader(file)
+            if not reader.fieldnames:
+                raise ValueError("The file must include a header row.")
+            validate_import_headers(reader.fieldnames)
+            for row in reader:
+                yield normalize_import_row(row)
+        return
+
+    if extension == ".xls":
+        import xlrd
+
+        workbook = xlrd.open_workbook(file_path, on_demand=True)
+        sheet = workbook.sheet_by_index(0)
+        try:
+            headers = sheet.row_values(0)
+            validate_import_headers(headers)
+            for row_index in range(1, sheet.nrows):
+                yield normalize_import_row(dict(zip(headers, sheet.row_values(row_index))))
+        finally:
+            workbook.release_resources()
+        return
+
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(file_path, read_only=True, data_only=True)
+    try:
+        rows = workbook.active.iter_rows(values_only=True)
+        headers = next(rows, None)
+        if not headers:
+            raise ValueError("The file must include a header row.")
+        validate_import_headers(headers)
+        for row in rows:
+            yield normalize_import_row(dict(zip(headers, row)))
+    finally:
+        workbook.close()
+
+
 def read_import_rows(file_path: Path, extension: str):
     if extension == ".csv":
         with file_path.open("r", encoding="utf-8-sig", newline="") as file:
@@ -1178,14 +1219,15 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
     skipped = 0
 
     try:
-        rows = read_import_rows(file_path, extension)
-        if not rows:
+        rows = iter_import_rows(file_path, extension)
+        first_row = next(rows, None)
+        if first_row is None:
             raise ValueError("The file must include at least one customer row.")
+        rows = chain((first_row,), rows)
 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
         with requests.Session() as session:
-            for start in range(0, len(rows), IMPORT_REQUEST_BATCH_SIZE):
-                row_chunk = rows[start : start + IMPORT_REQUEST_BATCH_SIZE]
+            while row_chunk := list(islice(rows, IMPORT_REQUEST_BATCH_SIZE)):
                 customers = [_build_import_customer(row) for row in row_chunk]
                 valid_customers = []
                 for customer in customers:
@@ -1220,7 +1262,8 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
                     job_id,
                     processed=processed,
                     invalid=invalid,
-                    progress=round(processed / len(rows) * 100),
+                    progress=min(99, processed // IMPORT_REQUEST_BATCH_SIZE),
+                    message=f"Importing rows... {processed} processed",
                 )
 
         update_import_job(
