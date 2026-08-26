@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
 
@@ -13,6 +14,23 @@ from backend import main
 
 
 class CustomerImportTests(unittest.TestCase):
+    def test_vercel_preview_origins_are_allowed_by_cors(self):
+        with TestClient(main.app) as client:
+            response = client.options(
+                "/imports/customers",
+                headers={
+                    "Origin": "https://onecroredatapluse-git-main-dataonecrore.vercel.app",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "authorization",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["access-control-allow-origin"],
+            "https://onecroredatapluse-git-main-dataonecrore.vercel.app",
+        )
+
     def test_confirmed_headers_map_to_customer_fields(self):
         row = main.normalize_import_row(
             {

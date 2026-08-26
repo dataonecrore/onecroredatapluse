@@ -24,6 +24,10 @@ ADMIN_EMAILS=admin@your-company.com
 FRONTEND_URL=https://onecroredatapluse.vercel.app
 ```
 
+The backend also allows preview deployments for the `onecroredatapluse` Vercel
+project. Set `FRONTEND_URL` to the production or custom frontend URL when using
+one.
+
 Loopback password-recovery redirects are rejected by default. Local development
 may opt in explicitly with `ALLOW_LOCAL_RECOVERY_REDIRECT=true`; never set that
 variable in Railway or another hosted environment.
