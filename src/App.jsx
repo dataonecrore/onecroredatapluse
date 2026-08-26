@@ -8,9 +8,11 @@ const isLoopbackApi = configuredApiBaseUrl
   ? /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?/.test(configuredApiBaseUrl)
   : false;
 const API_BASE_URL =
-  import.meta.env.PROD && isLoopbackApi
-    ? PUBLIC_API_BASE_URL
-    : configuredApiBaseUrl || PUBLIC_API_BASE_URL;
+  import.meta.env.PROD && !configuredApiBaseUrl
+    ? "/api"
+    : import.meta.env.PROD && isLoopbackApi
+      ? PUBLIC_API_BASE_URL
+      : configuredApiBaseUrl || PUBLIC_API_BASE_URL;
 const isDemoMode = import.meta.env.VITE_BYPASS_LOGIN === "true";
 const DEMO_CUSTOMERS = [
   {
