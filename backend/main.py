@@ -94,9 +94,11 @@ IMPORT_HEADER_ALIASES = {
     "customer address": "address",
     "email": "email",
     "email address": "email",
-    "father name": "father_name",
-    "father s name": "father_name",
-    "father's name": "father_name",
+    "relationship type": "relationship_type",
+    "relationship name": "relationship_name",
+    "father name": "relationship_name",
+    "father s name": "relationship_name",
+    "father's name": "relationship_name",
     "voter id": "voter_id_number",
     "voter id number": "voter_id_number",
     "aadhar": "aadhar_card_number",
@@ -148,7 +150,8 @@ logger = logging.getLogger(__name__)
 class CustomerCreate(BaseModel):
     name: str
     email: Optional[EmailStr] = None
-    father_name: Optional[str] = None
+    relationship_type: Optional[str] = None
+    relationship_name: Optional[str] = None
     voter_id_number: Optional[str] = None
     aadhar_card_number: Optional[str] = None
     phone: Optional[str] = None
@@ -165,7 +168,8 @@ class CustomerCreate(BaseModel):
 class CustomerUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
-    father_name: Optional[str] = None
+    relationship_type: Optional[str] = None
+    relationship_name: Optional[str] = None
     voter_id_number: Optional[str] = None
     aadhar_card_number: Optional[str] = None
     phone: Optional[str] = None
@@ -247,7 +251,7 @@ class CampaignCreate(BaseModel):
 
 
 CUSTOMER_SEARCH_COLUMNS = (
-    "id,customer_code,name,phone,whatsapp_phone,address,email,father_name,voter_id_number,aadhar_card_number,company,status,created_at,updated_at"
+    "id,customer_code,name,phone,whatsapp_phone,address,email,relationship_type,relationship_name,voter_id_number,aadhar_card_number,company,status,created_at,updated_at"
 )
 FOLLOW_UP_SELECT = (
     "id,user_id,customer_id,subject,notes,due_at,priority,channel,status,"
@@ -1126,7 +1130,7 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
             raise ValueError("The file must include at least one customer row.")
 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
-        allowed_fields = {"name", "email", "father_name", "voter_id_number", "aadhar_card_number", "phone", "whatsapp_phone", "address", "company", "status", "notes"}
+        allowed_fields = {"name", "email", "relationship_type", "relationship_name", "voter_id_number", "aadhar_card_number", "phone", "whatsapp_phone", "address", "company", "status", "notes"}
 
         for row in rows:
             processed += 1

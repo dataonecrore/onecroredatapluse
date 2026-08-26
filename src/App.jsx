@@ -296,7 +296,8 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
     customer || {
       name: "",
       email: "",
-      father_name: "",
+      relationship_type: "",
+      relationship_name: "",
       voter_id_number: "",
       aadhar_card_number: "",
       phone: "",
@@ -332,7 +333,8 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
       await onSave({
         name: form.name,
         email: form.email?.trim() || null,
-        father_name: form.father_name?.trim() || null,
+        relationship_type: form.relationship_type?.trim() || null,
+        relationship_name: form.relationship_name?.trim() || null,
         voter_id_number: form.voter_id_number?.trim() || null,
         aadhar_card_number: form.aadhar_card_number?.trim() || null,
         phone: form.phone || "",
@@ -391,13 +393,18 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label className="text-sm font-semibold text-slate-700">Father name (optional)</label>
-              <input value={form.father_name || ""} onChange={(e) => updateField("father_name", e.target.value)} placeholder="Father's full name" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" />
+              <label className="text-sm font-semibold text-slate-700">Relationship type (optional)</label>
+              <input value={form.relationship_type || ""} onChange={(e) => updateField("relationship_type", e.target.value)} placeholder="Father, mother, spouse, etc." className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" />
             </div>
             <div>
-              <label className="text-sm font-semibold text-slate-700">Voter ID number (optional)</label>
-              <input value={form.voter_id_number || ""} onChange={(e) => updateField("voter_id_number", e.target.value)} placeholder="Voter ID number" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 uppercase outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" />
+              <label className="text-sm font-semibold text-slate-700">Relationship name (optional)</label>
+              <input value={form.relationship_name || ""} onChange={(e) => updateField("relationship_name", e.target.value)} placeholder="Related person's full name" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" />
             </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-slate-700">Voter ID number (optional)</label>
+              <input value={form.voter_id_number || ""} onChange={(e) => updateField("voter_id_number", e.target.value)} placeholder="Voter ID number" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 uppercase outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" />
           </div>
 
           <div>
@@ -511,7 +518,8 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
           {[
             ["Name", customer.name],
             ["Email", customer.email || "-"],
-            ["Father name", customer.father_name || "-"],
+            ["Relationship type", customer.relationship_type || "-"],
+            ["Relationship name", customer.relationship_name || "-"],
             ["Voter ID number", customer.voter_id_number || "-"],
             ["Aadhar card number", customer.aadhar_card_number || "-"],
             ["Phone", customer.phone || "-"],
@@ -544,7 +552,8 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
           >
             {deleting ? "Deleting..." : "Delete"}
           </button>
-                          "Father Name",
+                          "Relationship Type",
+                          "Relationship Name",
                           "Voter ID Number",
                           "Aadhar Card Number",
                           "Email",
@@ -1978,7 +1987,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                             {customer.whatsapp_phone || "-"}
                           </td>
 
-                          <td className="px-5 py-4 text-sm text-slate-600">{customer.father_name || "-"}</td>
+                          <td className="px-5 py-4 text-sm text-slate-600">{customer.relationship_type || "-"}</td>
+                          <td className="px-5 py-4 text-sm text-slate-600">{customer.relationship_name || "-"}</td>
                           <td className="px-5 py-4 text-sm text-slate-600">{customer.voter_id_number || "-"}</td>
                           <td className="px-5 py-4 text-sm text-slate-600">{customer.aadhar_card_number || "-"}</td>
                           <td className="px-5 py-4 text-sm text-slate-600">{customer.email || "-"}</td>
@@ -2025,7 +2035,8 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                           {customer.phone || "-"}
                         </p>
                         <p><span className="font-medium text-slate-700">Alternate Number:</span>{" "}{customer.whatsapp_phone || "-"}</p>
-                        <p><span className="font-medium text-slate-700">Father Name:</span>{" "}{customer.father_name || "-"}</p>
+                        <p><span className="font-medium text-slate-700">Relationship Type:</span>{" "}{customer.relationship_type || "-"}</p>
+                        <p><span className="font-medium text-slate-700">Relationship Name:</span>{" "}{customer.relationship_name || "-"}</p>
                         <p><span className="font-medium text-slate-700">Voter ID Number:</span>{" "}{customer.voter_id_number || "-"}</p>
                         <p><span className="font-medium text-slate-700">Aadhar Card Number:</span>{" "}{customer.aadhar_card_number || "-"}</p>
                         <p><span className="font-medium text-slate-700">Email:</span>{" "}{customer.email || "-"}</p>
