@@ -421,14 +421,14 @@ function CustomerForm({ customer, onSave, onCancel, saving }) {
 
           <div>
             <label className="text-sm font-semibold text-slate-700">
-              WhatsApp number (optional)
+              Alternate number (optional)
             </label>
 
             <input
               type="tel"
               value={form.whatsapp_phone || ""}
               onChange={(e) => updateField("whatsapp_phone", e.target.value)}
-              placeholder="Same as phone or another number"
+              placeholder="Enter an alternate phone number"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
           </div>
@@ -515,7 +515,7 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
             ["Voter ID number", customer.voter_id_number || "-"],
             ["Aadhar card number", customer.aadhar_card_number || "-"],
             ["Phone", customer.phone || "-"],
-            ["WhatsApp", customer.whatsapp_phone || "-"],
+            ["Alternate number", customer.whatsapp_phone || "-"],
             ["Address", customer.address || "-"],
             [
               "Created",
@@ -1946,6 +1946,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                         {[
                           "Name",
                           "Phone Number",
+                          "Alternate Number",
                           "Father Name",
                           "Voter ID Number",
                           "Aadhar Card Number",
@@ -1971,6 +1972,10 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
 
                           <td className="px-5 py-4 text-sm text-slate-600">
                             {customer.phone || "-"}
+                          </td>
+
+                          <td className="px-5 py-4 text-sm text-slate-600">
+                            {customer.whatsapp_phone || "-"}
                           </td>
 
                           <td className="px-5 py-4 text-sm text-slate-600">{customer.father_name || "-"}</td>
@@ -2019,6 +2024,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                           <span className="font-medium text-slate-700">Phone Number:</span>{" "}
                           {customer.phone || "-"}
                         </p>
+                        <p><span className="font-medium text-slate-700">Alternate Number:</span>{" "}{customer.whatsapp_phone || "-"}</p>
                         <p><span className="font-medium text-slate-700">Father Name:</span>{" "}{customer.father_name || "-"}</p>
                         <p><span className="font-medium text-slate-700">Voter ID Number:</span>{" "}{customer.voter_id_number || "-"}</p>
                         <p><span className="font-medium text-slate-700">Aadhar Card Number:</span>{" "}{customer.aadhar_card_number || "-"}</p>

@@ -245,7 +245,7 @@ class CampaignCreate(BaseModel):
 
 
 CUSTOMER_SEARCH_COLUMNS = (
-    "id,customer_code,name,phone,address,email,father_name,voter_id_number,aadhar_card_number,company,status,created_at,updated_at"
+    "id,customer_code,name,phone,whatsapp_phone,address,email,father_name,voter_id_number,aadhar_card_number,company,status,created_at,updated_at"
 )
 FOLLOW_UP_SELECT = (
     "id,user_id,customer_id,subject,notes,due_at,priority,channel,status,"
