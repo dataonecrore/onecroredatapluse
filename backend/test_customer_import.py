@@ -14,6 +14,24 @@ from backend import main
 
 
 class CustomerImportTests(unittest.TestCase):
+    def test_import_customers_have_matching_bulk_payload_keys(self):
+        first = main._build_import_customer(
+            {"name": "First", "phone": "111"}
+        )
+        second = main._build_import_customer(
+            {
+                "name": "Second",
+                "phone": "222",
+                "email": "second@example.com",
+                "address": "Pune",
+            }
+        )
+
+        self.assertEqual(set(first), set(second))
+        self.assertIsNone(first["email"])
+        self.assertEqual(first["status"], "Active")
+        self.assertEqual(second["email"], "second@example.com")
+
     def test_duplicate_lookup_batches_values_by_key(self):
         class Response:
             status_code = 200

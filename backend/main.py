@@ -73,6 +73,20 @@ SMALL_IMPORT_SIZE = 100 * 1024 * 1024
 MAX_IMPORT_SIZE = int(os.getenv("MAX_IMPORT_SIZE_BYTES", str(5 * 1024 * 1024 * 1024)))
 ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
 IMPORT_REQUEST_BATCH_SIZE = 250
+IMPORT_CUSTOMER_FIELDS = (
+    "name",
+    "email",
+    "relationship_type",
+    "relationship_name",
+    "voter_id_number",
+    "aadhar_card_number",
+    "phone",
+    "whatsapp_phone",
+    "address",
+    "company",
+    "status",
+    "notes",
+)
 import_jobs = {}
 
 IMPORT_HEADER_ALIASES = {
@@ -1146,6 +1160,13 @@ def _create_customers_batch(session, customers):
         raise ValueError(response.text)
 
 
+def _build_import_customer(row):
+    return {
+        field: row.get(field) if field != "status" else row.get(field, "Active")
+        for field in IMPORT_CUSTOMER_FIELDS
+    }
+
+
 def import_customers(job_id: str, file_path: Path, extension: str, import_mode: str, duplicate_keys: str):
     processed = 0
     invalid = 0
@@ -1159,15 +1180,10 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
             raise ValueError("The file must include at least one customer row.")
 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
-        allowed_fields = {"name", "email", "relationship_type", "relationship_name", "voter_id_number", "aadhar_card_number", "phone", "whatsapp_phone", "address", "company", "status", "notes"}
-
         with requests.Session() as session:
             for start in range(0, len(rows), IMPORT_REQUEST_BATCH_SIZE):
                 row_chunk = rows[start : start + IMPORT_REQUEST_BATCH_SIZE]
-                customers = [
-                    {key: row[key] for key in allowed_fields if row.get(key)}
-                    for row in row_chunk
-                ]
+                customers = [_build_import_customer(row) for row in row_chunk]
                 valid_customers = []
                 for customer in customers:
                     if not customer.get("name") or not customer.get("phone"):
