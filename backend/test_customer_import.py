@@ -141,6 +141,23 @@ class CustomerImportTests(unittest.TestCase):
             "45, Green Park Colony, Kondapur, Hyderabad, Telangana, 500084",
         )
 
+    def test_misspelled_customer_address_header_keeps_full_address(self):
+        row = main.normalize_import_row(
+            {
+                "Customer Name": "Devadas M S",
+                "Customer Phone": "9014168580",
+                "Customer Adress": "12, Lake View Road",
+                "City": "Karkala",
+                "State": "Karnataka",
+                "PIN Code": 500047,
+            }
+        )
+
+        self.assertEqual(
+            row["address"],
+            "12, Lake View Road, Karkala, Karnataka, 500047",
+        )
+
     def test_xlsx_with_confirmed_headers_is_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sample_customer_dataset.xlsx"
