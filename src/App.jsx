@@ -648,7 +648,7 @@ function CustomerImport() {
     } catch (uploadError) {
       if (uploadError instanceof TypeError && uploadError.message === "Failed to fetch") {
         setError(
-          `Unable to reach the import API at ${API_BASE_URL}. Check your connection, sign in again, and confirm the deployed frontend allows this API origin.`
+          `Unable to reach the import API at ${API_BASE_URL} from ${window.location.origin}. Check the API deployment, browser network access, and CORS settings for this exact frontend origin.`
         );
       } else {
         setError(uploadError.message || "Unable to upload file.");
