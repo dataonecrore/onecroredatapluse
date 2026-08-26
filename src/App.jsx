@@ -638,10 +638,23 @@ function CustomerImport() {
 
       while (currentJob.status === "processing") {
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        const statusResponse = await apiFetch(`${API_BASE_URL}/imports/${currentJob.id}`);
+        let statusResponse;
+        let lastStatusError;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          try {
+            statusResponse = await apiFetch(`${API_BASE_URL}/imports/${currentJob.id}`);
+            if (statusResponse.ok) break;
+            lastStatusError = new Error(`HTTP ${statusResponse.status}`);
+          } catch (statusError) {
+            lastStatusError = statusError;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
 
-        if (!statusResponse.ok) {
-          throw new Error("Unable to read import progress.");
+        if (!statusResponse?.ok) {
+          throw new Error(
+            `Unable to read import progress after several attempts${lastStatusError ? ` (${lastStatusError.message})` : ""}.`
+          );
         }
 
         currentJob = await statusResponse.json();
@@ -670,7 +683,7 @@ function CustomerImport() {
           Import Customers
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
-          Small files use the validation importer. Large CSV files use the server-side PostgreSQL COPY importer.
+          Files over 10 MB use the server-side PostgreSQL COPY importer when phone duplicate handling is selected.
         </p>
       </div>
 

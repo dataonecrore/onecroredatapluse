@@ -14,6 +14,9 @@ from backend import main
 
 
 class CustomerImportTests(unittest.TestCase):
+    def test_import_threshold_defaults_to_ten_megabytes(self):
+        self.assertEqual(main.SMALL_IMPORT_SIZE, 10 * 1024 * 1024)
+
     def test_import_customers_have_matching_bulk_payload_keys(self):
         first = main._build_import_customer(
             {"name": "First", "phone": "111"}
