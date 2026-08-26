@@ -110,6 +110,36 @@ class CustomerImportTests(unittest.TestCase):
             {"name": "Aarav Sharma", "phone": "9000000001"},
         )
 
+    def test_customer_spreadsheet_headers_map_to_database_fields(self):
+        row = main.normalize_import_row(
+            {
+                "Name": "Aarav Sharma",
+                "Phone Number": 9000000001,
+                "Alternate Number": 9000000002,
+                "Relationship Type": "Father",
+                "Relationship Name": "Ramesh Sharma",
+                "Voter ID Number": "ABC1234567",
+                "Aadhar Card Number": 123456789012,
+                "Email": "aarav@example.com",
+                "Adress": "12, Lake View Road",
+            }
+        )
+
+        self.assertEqual(
+            row,
+            {
+                "name": "Aarav Sharma",
+                "phone": "9000000001",
+                "whatsapp_phone": "9000000002",
+                "relationship_type": "Father",
+                "relationship_name": "Ramesh Sharma",
+                "voter_id_number": "ABC1234567",
+                "aadhar_card_number": "123456789012",
+                "email": "aarav@example.com",
+                "address": "12, Lake View Road",
+            },
+        )
+
     def test_missing_customer_phone_has_clear_error(self):
         with self.assertRaisesRegex(ValueError, "Name and Phone Number"):
             main.validate_import_headers(["Customer Name", "Customer Address"])
