@@ -44,7 +44,7 @@ Keep it unset or set it to `false` in every real customer-data environment. Demo
 
 The customer screen searches Supabase through the authenticated FastAPI backend. It searches only normalized customer names and phone numbers, returns at most 25 records per request, and uses cursor pagination. Addresses are stored and displayed but are not searchable.
 
-Apply the migration in `supabase/migrations` before deploying the matching backend and frontend. The browser importer is for small validation batches only; do not use it for the 10-million-row production load.
+Apply all migrations in `supabase/migrations` to the same Supabase project used by the backend before deploying the matching backend and frontend. For example, with the Supabase CLI run `supabase link --project-ref <project-ref>` once, then `supabase db push`. If PostgREST still reports a missing column after the migration, run `NOTIFY pgrst, 'reload schema';` in the Supabase SQL editor. The browser importer is for small validation batches only; do not use it for the 10-million-row production load.
 
 The production-scale CSV importer is documented in [`docs/BULK_CUSTOMER_IMPORT_RUNBOOK.md`](docs/BULK_CUSTOMER_IMPORT_RUNBOOK.md). It uses a direct Postgres connection, bounded `COPY` batches, SHA-256 file verification, resumable checkpoints, and explicit duplicate handling. Do not apply its migration or run a production import until the source headers and duplicate-phone rule have been confirmed.
 
