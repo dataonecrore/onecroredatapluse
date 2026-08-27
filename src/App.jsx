@@ -1969,7 +1969,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
               </div>
             ) : (
               <>
-                <div className="hidden overflow-x-auto md:block">
+                <div className="hidden overflow-x-auto xl:block">
                   <table className="min-w-full">
                     <thead className="bg-slate-50">
                       <tr>
@@ -2037,7 +2037,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                   </table>
                 </div>
 
-                <div className="grid gap-3 p-4 md:hidden">
+                <div className="grid gap-3 p-4 xl:hidden">
                   {customers.map((customer) => (
                     <div
                       key={customer.id}
