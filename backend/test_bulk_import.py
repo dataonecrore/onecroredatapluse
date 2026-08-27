@@ -31,6 +31,10 @@ CONFIRMED_COLUMNS = {
     "name": "Customer Name",
     "phone": "Customer Phone",
     "address": "Customer Address",
+    "house_no": "House No",
+    "street": "Street",
+    "village": "Village",
+    "post_office": "Post office",
     "city": "City",
     "state": "State",
     "pin_code": "PIN Code",
@@ -106,6 +110,26 @@ class BulkImportTests(unittest.TestCase):
                 None,
             ),
         )
+
+    def test_split_columns_combine_and_clean_full_address(self):
+        columns = {
+            **CONFIRMED_COLUMNS,
+            "address": None,
+        }
+        result = parse_customer_row(
+            {
+                "Customer Name": "Tumma Govardhan",
+                "Customer Phone": "919949024248",
+                "House No": "26/5/4/3/1",
+                "Street": " BALRAM NAGAR ",
+                "Village": " BALRAMNAGAR ",
+                "Post office": " MALKajgiri ",
+                "PIN Code": 500047,
+            },
+            2,
+            columns,
+        )
+        self.assertEqual(result.address, "26/5/4/3/1, BALRAM NAGAR, BALRAMNAGAR, MALKajgiri, 500047")
 
     def test_invalid_rows_do_not_retain_pii_in_rejection(self):
         result = parse_customer_row(

@@ -65,7 +65,12 @@ def clean_text(value: object | None) -> str:
 def validate_headers(fieldnames: list[str] | None, columns: dict[str, str | None]) -> None:
     if not fieldnames:
         raise ValueError("CSV file has no header row")
-    missing = [column for column in columns.values() if column and column not in fieldnames]
+    optional_columns = {"house_no", "street", "village", "post_office"}
+    missing = [
+        column
+        for key, column in columns.items()
+        if column and key not in optional_columns and column not in fieldnames
+    ]
     if missing:
         raise ValueError(f"CSV is missing configured column(s): {', '.join(missing)}")
 
@@ -105,6 +110,10 @@ def parse_customer_row(
         )
     address_columns = (
         columns.get("address"),
+        columns.get("house_no"),
+        columns.get("street"),
+        columns.get("village"),
+        columns.get("post_office"),
         columns.get("city"),
         columns.get("state"),
         columns.get("pin_code"),
@@ -343,6 +352,10 @@ def import_csv(args: argparse.Namespace) -> uuid.UUID:
         "name": args.name_column,
         "phone": args.phone_column,
         "address": args.address_column,
+        "house_no": args.house_no_column,
+        "street": args.street_column,
+        "village": args.village_column,
+        "post_office": args.post_office_column,
         "city": args.city_column,
         "state": args.state_column,
         "pin_code": args.pin_code_column,
@@ -457,6 +470,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--name-column", default="Customer Name")
     parser.add_argument("--phone-column", default="Customer Phone")
     parser.add_argument("--address-column", default="Customer Address")
+    parser.add_argument("--house-no-column", default="House No")
+    parser.add_argument("--street-column", default="Street")
+    parser.add_argument("--village-column", default="Village")
+    parser.add_argument("--post-office-column", default="Post office")
     parser.add_argument("--city-column", default="City")
     parser.add_argument("--state-column", default="State")
     parser.add_argument("--pin-code-column", default="PIN Code")

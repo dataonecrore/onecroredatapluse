@@ -1083,7 +1083,16 @@ def normalize_import_row(row):
     }
     address_parts = [
         normalized.pop(key, "")
-        for key in ("address", "city", "state", "pin_code")
+        for key in (
+            "address",
+            "house_no",
+            "street",
+            "village",
+            "post_office",
+            "city",
+            "state",
+            "pin_code",
+        )
     ]
     address = ", ".join(part for part in address_parts if part)
     if address:

@@ -158,6 +158,24 @@ class CustomerImportTests(unittest.TestCase):
             "12, Lake View Road, Karkala, Karnataka, 500047",
         )
 
+    def test_split_address_headers_are_combined_for_display(self):
+        row = main.normalize_import_row(
+            {
+                "Name": "Tumma Govardhan",
+                "Phone Number": "919949024248",
+                "House No": "26/5/4/3/1",
+                "Street": "BALRAM NAGAR",
+                "Village": "BALRAMNAGAR",
+                "Post office": "MALKajgiri",
+                "Pincode": 500047,
+            }
+        )
+
+        self.assertEqual(
+            row["address"],
+            "26/5/4/3/1, BALRAM NAGAR, BALRAMNAGAR, MALKajgiri, 500047",
+        )
+
     def test_xlsx_with_confirmed_headers_is_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sample_customer_dataset.xlsx"
