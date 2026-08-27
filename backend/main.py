@@ -1871,8 +1871,10 @@ def update_customer(
     customer: CustomerUpdate,
     _: dict = Depends(require_admin),
 ):
+    # Keep explicitly supplied nulls so optional values can be cleared while
+    # still omitting fields that the client did not send.
     payload = customer.model_dump(
-        exclude_none=True
+        exclude_unset=True
     )
 
     if not payload:
