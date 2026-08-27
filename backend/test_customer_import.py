@@ -108,8 +108,8 @@ class CustomerImportTests(unittest.TestCase):
 
             def get(self, url, **kwargs):
                 self.calls.append(url)
-                if "phone=in." in url:
-                    return Response([{"id": 11, "phone": "9000000001"}])
+                if "normalized_phone=in." in url:
+                    return Response([{"id": 11, "normalized_phone": "9000000001"}])
                 return Response([{"id": 12, "email": "aarav@example.com"}])
 
         session = Session()
@@ -122,6 +122,73 @@ class CustomerImportTests(unittest.TestCase):
 
         self.assertEqual(duplicate_ids, {0: 11})
         self.assertEqual(len(session.calls), 2)
+
+    def test_duplicate_lookup_normalizes_phone_format(self):
+        class Response:
+            status_code = 200
+            text = ""
+
+            def json(self):
+                return [{"id": 11, "normalized_phone": "919876543210"}]
+
+        class Session:
+            def __init__(self):
+                self.url = ""
+
+            def get(self, url, **kwargs):
+                self.url = url
+                return Response()
+
+        session = Session()
+        duplicate_ids = main._find_duplicates_batch(
+            session,
+            [{"name": "Aarav", "phone": "+91 98765-43210"}],
+            ["phone"],
+        )
+
+        self.assertEqual(duplicate_ids, {0: 11})
+        self.assertIn("normalized_phone=in.(919876543210)", session.url)
+
+    def test_duplicate_rows_in_same_batch_are_removed(self):
+        customers = [
+            {"name": "First", "phone": "+91 98765-43210", "email": "first@example.com"},
+            {"name": "Repeated phone", "phone": "919876543210", "email": "second@example.com"},
+            {"name": "Repeated email", "phone": "9000000002", "email": "FIRST@EXAMPLE.COM"},
+            {"name": "Unique", "phone": "9000000003", "email": "unique@example.com"},
+        ]
+
+        unique, duplicate_count = main._deduplicate_import_batch(
+            customers, ["phone", "email"]
+        )
+
+        self.assertEqual([customer["name"] for customer in unique], ["First", "Unique"])
+        self.assertEqual(duplicate_count, 2)
+
+    @patch("backend.main._create_customers_batch")
+    @patch("backend.main._find_duplicates_batch", return_value={})
+    @patch("backend.main.iter_import_rows")
+    def test_import_skips_normalized_duplicates_in_the_same_batch(
+        self, iter_rows, _find_duplicates, create_batch
+    ):
+        iter_rows.return_value = iter(
+            [
+                {"name": "First", "phone": "+91 98765-43210"},
+                {"name": "Repeated", "phone": "919876543210"},
+            ]
+        )
+        job_id = "same-batch-duplicate-test"
+        main.import_jobs[job_id] = {}
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as source:
+            source_path = Path(source.name)
+
+        main.import_customers(job_id, source_path, ".xlsx", "new", "phone")
+
+        job = main.import_jobs.pop(job_id)
+        self.assertEqual(job["status"], "ready")
+        self.assertEqual(job["created"], 1)
+        self.assertEqual(job["skipped"], 1)
+        create_batch.assert_called_once()
+        self.assertEqual(len(create_batch.call_args.args[1]), 1)
 
     def test_customer_creation_sends_one_batch(self):
         class Response:
