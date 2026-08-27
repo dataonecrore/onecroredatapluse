@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
@@ -34,6 +35,62 @@ class CustomerImportTests(unittest.TestCase):
         self.assertIsNone(first["email"])
         self.assertEqual(first["status"], "Active")
         self.assertEqual(second["email"], "second@example.com")
+
+    def test_import_row_issues_distinguish_blank_and_incomplete_rows(self):
+        self.assertEqual(main.get_import_row_issue({}), "blank")
+        self.assertEqual(
+            main.get_import_row_issue({"name": "", "phone": ""}),
+            "blank",
+        )
+        self.assertEqual(
+            main.get_import_row_issue({"name": "Aarav", "phone": ""}),
+            "missing_phone",
+        )
+        self.assertEqual(
+            main.get_import_row_issue({"name": "", "phone": "9000000001"}),
+            "missing_name",
+        )
+        self.assertEqual(
+            main.get_import_row_issue({"name": "", "phone": "", "notes": "Review"}),
+            "missing_name_and_phone",
+        )
+        self.assertIsNone(
+            main.get_import_row_issue({"name": "Aarav", "phone": "9000000001"})
+        )
+
+    @patch("backend.main._create_customers_batch")
+    @patch("backend.main._find_duplicates_batch", return_value={})
+    @patch("backend.main.iter_import_rows")
+    def test_small_import_ignores_blank_rows_and_reports_invalid_reasons(
+        self, iter_rows, _find_duplicates, create_batch
+    ):
+        iter_rows.return_value = iter(
+            [
+                {"name": "Aarav", "phone": "9000000001"},
+                {},
+                {"name": "", "phone": ""},
+                {"name": "Priya", "phone": ""},
+                {"name": "", "phone": "9000000002"},
+            ]
+        )
+        job_id = "blank-row-test"
+        main.import_jobs[job_id] = {}
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as source:
+            source_path = Path(source.name)
+
+        main.import_customers(job_id, source_path, ".xlsx", "new", "phone")
+
+        job = main.import_jobs.pop(job_id)
+        self.assertEqual(job["status"], "ready")
+        self.assertEqual(job["processed"], 3)
+        self.assertEqual(job["blank_rows_ignored"], 2)
+        self.assertEqual(job["invalid"], 2)
+        self.assertEqual(
+            job["invalid_reasons"],
+            {"missing_phone": 1, "missing_name": 1},
+        )
+        create_batch.assert_called_once()
+        self.assertEqual(len(create_batch.call_args.args[1]), 1)
 
     def test_duplicate_lookup_batches_values_by_key(self):
         class Response:
