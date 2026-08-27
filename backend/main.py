@@ -1068,10 +1068,9 @@ def normalize_import_value(value):
 
 def validate_import_headers(headers):
     normalized = {normalize_import_header(header) for header in headers if header is not None}
-    if not {"name", "phone"}.issubset(normalized):
+    if "name" not in normalized:
         raise ValueError(
-            "The file must include Name and Phone Number columns "
-            "(or Customer Name and Customer Phone)."
+            "The file must include a Name column (or Customer Name)."
         )
 
 
@@ -1223,12 +1222,8 @@ def _build_import_customer(row):
 def get_import_row_issue(row: dict) -> Optional[str]:
     if not any(value for value in row.values()):
         return "blank"
-    if not row.get("name") and not row.get("phone"):
-        return "missing_name_and_phone"
     if not row.get("name"):
         return "missing_name"
-    if not row.get("phone"):
-        return "missing_phone"
     return None
 
 

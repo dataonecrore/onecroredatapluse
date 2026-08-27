@@ -87,6 +87,14 @@ class BulkImportTests(unittest.TestCase):
         )
         self.assertEqual(result, CustomerRow(7, "Asha", "123-456", "Pune", None))
 
+    def test_customer_without_phone_is_accepted(self):
+        result = parse_customer_row(
+            {"customer_name": "Asha", "phone": "", "address": "Pune"},
+            8,
+            COLUMNS,
+        )
+        self.assertEqual(result, CustomerRow(8, "Asha", None, "Pune", None))
+
     def test_confirmed_columns_combine_and_clean_full_address(self):
         result = parse_customer_row(
             {
@@ -170,9 +178,28 @@ class BulkImportTests(unittest.TestCase):
             "12, Lake View Road, Banjara Hills, Hyderabad, Telangana, 500034",
         )
 
-    def test_header_validation_reports_configured_column(self):
-        with self.assertRaisesRegex(ValueError, "phone"):
-            validate_headers(["customer_name", "address"], COLUMNS)
+    def test_phone_header_is_optional(self):
+        validate_headers(["customer_name", "address"], COLUMNS)
+
+    def test_skip_phone_deduplication_preserves_rows_without_phone(self):
+        class Cursor:
+            statement = ""
+
+            def execute(self, statement, _parameters):
+                self.statement = statement
+
+            def fetchone(self):
+                return (2,)
+
+        cursor = Cursor()
+        _insert_staged(
+            cursor,
+            "00000000-0000-0000-0000-000000000000",
+            "skip-phone",
+        )
+
+        self.assertIn("normalized_phone is null or duplicate_rank = 1", cursor.statement)
+        self.assertIn("stage.normalized_phone is null or not exists", cursor.statement)
 
     def test_file_checksum_is_stable(self):
         with tempfile.TemporaryDirectory() as directory:

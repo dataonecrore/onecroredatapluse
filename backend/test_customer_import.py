@@ -42,17 +42,14 @@ class CustomerImportTests(unittest.TestCase):
             main.get_import_row_issue({"name": "", "phone": ""}),
             "blank",
         )
-        self.assertEqual(
-            main.get_import_row_issue({"name": "Aarav", "phone": ""}),
-            "missing_phone",
-        )
+        self.assertIsNone(main.get_import_row_issue({"name": "Aarav", "phone": ""}))
         self.assertEqual(
             main.get_import_row_issue({"name": "", "phone": "9000000001"}),
             "missing_name",
         )
         self.assertEqual(
             main.get_import_row_issue({"name": "", "phone": "", "notes": "Review"}),
-            "missing_name_and_phone",
+            "missing_name",
         )
         self.assertIsNone(
             main.get_import_row_issue({"name": "Aarav", "phone": "9000000001"})
@@ -84,13 +81,13 @@ class CustomerImportTests(unittest.TestCase):
         self.assertEqual(job["status"], "ready")
         self.assertEqual(job["processed"], 3)
         self.assertEqual(job["blank_rows_ignored"], 2)
-        self.assertEqual(job["invalid"], 2)
+        self.assertEqual(job["invalid"], 1)
         self.assertEqual(
             job["invalid_reasons"],
-            {"missing_phone": 1, "missing_name": 1},
+            {"missing_name": 1},
         )
         create_batch.assert_called_once()
-        self.assertEqual(len(create_batch.call_args.args[1]), 1)
+        self.assertEqual(len(create_batch.call_args.args[1]), 2)
 
     def test_duplicate_lookup_batches_values_by_key(self):
         class Response:
@@ -339,9 +336,12 @@ class CustomerImportTests(unittest.TestCase):
             },
         )
 
-    def test_missing_customer_phone_has_clear_error(self):
-        with self.assertRaisesRegex(ValueError, "Name and Phone Number"):
-            main.validate_import_headers(["Customer Name", "Customer Address"])
+    def test_customer_phone_header_is_optional(self):
+        main.validate_import_headers(["Customer Name", "Customer Address"])
+
+    def test_missing_customer_name_has_clear_error(self):
+        with self.assertRaisesRegex(ValueError, "Name column"):
+            main.validate_import_headers(["Phone Number", "Customer Address"])
 
 
 if __name__ == "__main__":

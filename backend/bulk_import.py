@@ -34,7 +34,7 @@ HEADER_ALIASES = {
 class CustomerRow:
     source_row: int
     customer_name: str
-    phone: str
+    phone: str | None
     address: str | None
     source_customer_id: str | None
 
@@ -65,7 +65,7 @@ def clean_text(value: object | None) -> str:
 def validate_headers(fieldnames: list[str] | None, columns: dict[str, str | None]) -> None:
     if not fieldnames:
         raise ValueError("CSV file has no header row")
-    optional_columns = {"house_no", "street", "village", "post_office"}
+    optional_columns = {"phone", "house_no", "street", "village", "post_office"}
     missing = [
         column
         for key, column in columns.items()
@@ -98,11 +98,10 @@ def parse_customer_row(
     row: dict[str, str | None], source_row: int, columns: dict[str, str | None]
 ) -> CustomerRow | RejectedRow:
     name = clean_text(row.get(columns["name"] or ""))
-    phone = clean_text(row.get(columns["phone"] or ""))
-    digits = normalized_phone(phone)
+    phone = clean_text(row.get(columns["phone"] or "")) or None
     if not name:
         return RejectedRow(source_row, "missing_name", "Customer name is required")
-    if len(digits) < 3:
+    if phone and len(normalized_phone(phone)) < 3:
         return RejectedRow(
             source_row,
             "invalid_phone",
@@ -218,7 +217,7 @@ def _create_temp_staging(cursor) -> None:
         create temporary table if not exists customer_import_stage (
           source_row bigint not null,
           customer_name text not null,
-          phone text not null,
+          phone text,
           address text,
           source_customer_id text
         ) on commit delete rows
@@ -250,17 +249,28 @@ def _insert_staged(cursor, job_id: uuid.UUID, duplicate_mode: str) -> int:
         selection = "select * from customer_import_stage"
     else:
         selection = """
-          select distinct on (regexp_replace(phone, '\\D', '', 'g')) *
-          from customer_import_stage
-          order by regexp_replace(phone, '\\D', '', 'g'), source_row
+          select *
+          from (
+            select customer_import_stage.*,
+                   nullif(regexp_replace(coalesce(phone, ''), '\\D', '', 'g'), '')
+                     as normalized_phone,
+                   row_number() over (
+                     partition by nullif(
+                       regexp_replace(coalesce(phone, ''), '\\D', '', 'g'), ''
+                     )
+                     order by source_row
+                   ) as duplicate_rank
+            from customer_import_stage
+          ) ranked
+          where normalized_phone is null or duplicate_rank = 1
         """
 
     duplicate_filter = ""
     if duplicate_mode == "skip-phone":
         duplicate_filter = """
-          where not exists (
+          where stage.normalized_phone is null or not exists (
             select 1 from public.customers existing
-            where existing.normalized_phone = regexp_replace(stage.phone, '\\D', '', 'g')
+            where existing.normalized_phone = stage.normalized_phone
           )
         """
 
