@@ -70,7 +70,7 @@ ADMIN_EMAILS = {
 }
 IMPORT_DIR = Path(__file__).parent / "imports"
 IMPORT_DIR.mkdir(exist_ok=True)
-SMALL_IMPORT_SIZE = int(os.getenv("SMALL_IMPORT_SIZE_BYTES", str(10 * 1024 * 1024)))
+SMALL_IMPORT_SIZE = int(os.getenv("SMALL_IMPORT_SIZE_BYTES", str(100 * 1024 * 1024)))
 MAX_IMPORT_SIZE = int(os.getenv("MAX_IMPORT_SIZE_BYTES", str(5 * 1024 * 1024 * 1024)))
 ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
 IMPORT_REQUEST_BATCH_SIZE = 250

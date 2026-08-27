@@ -683,7 +683,7 @@ function CustomerImport() {
           Import Customers
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
-          Files over 10 MB use the server-side PostgreSQL COPY importer when phone duplicate handling is selected.
+          Files over 100 MB use the server-side PostgreSQL COPY importer when phone duplicate handling is selected.
         </p>
       </div>
 
