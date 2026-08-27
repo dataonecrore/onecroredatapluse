@@ -1220,9 +1220,24 @@ def _build_import_customer(row):
     }
 
 
+def get_import_row_issue(row: dict) -> Optional[str]:
+    if not any(value for value in row.values()):
+        return "blank"
+    if not row.get("name") and not row.get("phone"):
+        return "missing_name_and_phone"
+    if not row.get("name"):
+        return "missing_name"
+    if not row.get("phone"):
+        return "missing_phone"
+    return None
+
+
 def import_customers(job_id: str, file_path: Path, extension: str, import_mode: str, duplicate_keys: str):
+    scanned = 0
     processed = 0
     invalid = 0
+    blank_rows_ignored = 0
+    invalid_reasons = defaultdict(int)
     created = 0
     updated = 0
     skipped = 0
@@ -1237,13 +1252,20 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
         with requests.Session() as session:
             while row_chunk := list(islice(rows, IMPORT_REQUEST_BATCH_SIZE)):
-                customers = [_build_import_customer(row) for row in row_chunk]
-                valid_customers = []
-                for customer in customers:
-                    if not customer.get("name") or not customer.get("phone"):
+                valid_rows = []
+                blank_rows_in_chunk = 0
+                for row in row_chunk:
+                    issue = get_import_row_issue(row)
+                    if issue == "blank":
+                        blank_rows_in_chunk += 1
+                        blank_rows_ignored += 1
+                    elif issue:
                         invalid += 1
+                        invalid_reasons[issue] += 1
                     else:
-                        valid_customers.append(customer)
+                        valid_rows.append(row)
+
+                valid_customers = [_build_import_customer(row) for row in valid_rows]
 
                 duplicate_ids = _find_duplicates_batch(session, valid_customers, selected_keys)
                 new_customers = []
@@ -1266,13 +1288,16 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
 
                 _create_customers_batch(session, new_customers)
                 created += len(new_customers)
-                processed += len(row_chunk)
+                scanned += len(row_chunk)
+                processed += len(row_chunk) - blank_rows_in_chunk
                 update_import_job(
                     job_id,
                     processed=processed,
                     invalid=invalid,
-                    progress=min(99, processed // IMPORT_REQUEST_BATCH_SIZE),
-                    message=f"Importing rows... {processed} processed",
+                    blank_rows_ignored=blank_rows_ignored,
+                    invalid_reasons=dict(invalid_reasons),
+                    progress=min(99, scanned // IMPORT_REQUEST_BATCH_SIZE),
+                    message=f"Importing rows... {scanned} spreadsheet rows scanned",
                 )
 
         update_import_job(
@@ -1280,6 +1305,8 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
             status="ready",
             processed=processed,
             invalid=invalid,
+            blank_rows_ignored=blank_rows_ignored,
+            invalid_reasons=dict(invalid_reasons),
             created=created,
             updated=updated,
             skipped=skipped,
@@ -1358,6 +1385,8 @@ async def upload_customers(
         "status": "processing",
         "processed": 0,
         "invalid": 0,
+        "blank_rows_ignored": 0,
+        "invalid_reasons": {},
         "progress": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "message": "File uploaded. Validating rows...",

@@ -784,9 +784,19 @@ function CustomerImport() {
               />
             </div>
             {job.status === "ready" && (
-              <p className="mt-3 text-sm text-slate-700">
-                {job.processed.toLocaleString()} rows processed: {job.created || 0} added, {job.updated || 0} updated, {job.skipped || 0} skipped, {job.invalid.toLocaleString()} invalid.
-              </p>
+              <div className="mt-3 space-y-1 text-sm text-slate-700">
+                <p>
+                  {job.processed.toLocaleString()} customer rows processed: {job.created || 0} added, {job.updated || 0} updated, {job.skipped || 0} skipped, {job.invalid.toLocaleString()} invalid.
+                </p>
+                {(job.blank_rows_ignored || 0) > 0 && (
+                  <p>{job.blank_rows_ignored.toLocaleString()} empty spreadsheet rows ignored.</p>
+                )}
+                {(job.invalid || 0) > 0 && (
+                  <p>
+                    Invalid reasons: {(job.invalid_reasons?.missing_name || 0).toLocaleString()} missing name, {(job.invalid_reasons?.missing_phone || 0).toLocaleString()} missing phone, {(job.invalid_reasons?.missing_name_and_phone || 0).toLocaleString()} missing both.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
