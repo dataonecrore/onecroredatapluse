@@ -15,6 +15,11 @@ from backend import main
 
 
 class CustomerImportTests(unittest.TestCase):
+    def test_standard_import_uses_larger_processing_and_write_batches(self):
+        self.assertEqual(main.IMPORT_ROW_BATCH_SIZE, 2_000)
+        self.assertEqual(main.IMPORT_WRITE_BATCH_SIZE, 1_000)
+        self.assertEqual(main.IMPORT_LOOKUP_BATCH_SIZE, 250)
+
     def test_import_threshold_defaults_to_one_hundred_megabytes(self):
         self.assertEqual(main.SMALL_IMPORT_SIZE, 100 * 1024 * 1024)
 
@@ -211,6 +216,29 @@ class CustomerImportTests(unittest.TestCase):
         main._create_customers_batch(session, customers)
 
         self.assertEqual(session.payload, customers)
+
+    def test_customer_creation_splits_large_chunks_into_safe_write_batches(self):
+        class Response:
+            status_code = 201
+            text = ""
+
+        class Session:
+            def __init__(self):
+                self.payloads = []
+
+            def post(self, url, **kwargs):
+                self.payloads.append(kwargs["json"])
+                return Response()
+
+        session = Session()
+        customers = [
+            {"name": f"Customer {index}", "phone": str(index)}
+            for index in range(2_500)
+        ]
+
+        main._create_customers_batch(session, customers)
+
+        self.assertEqual([len(payload) for payload in session.payloads], [1_000, 1_000, 500])
 
     def test_vercel_preview_origins_are_allowed_by_cors(self):
         with TestClient(main.app) as client:
