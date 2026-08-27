@@ -209,6 +209,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RefreshSessionRequest(BaseModel):
+    refresh_token: str
+
+
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
@@ -537,6 +541,7 @@ def login(payload: LoginRequest, background_tasks: Optional[BackgroundTasks] = N
         background_tasks.add_task(record_login_event, user)
     return {
         "access_token": session["access_token"],
+        "refresh_token": session["refresh_token"],
         "user": {
             "id": user.get("id"),
             "name": get_user_name(user),
@@ -549,6 +554,24 @@ def login(payload: LoginRequest, background_tasks: Optional[BackgroundTasks] = N
 @app.post("/auth/login")
 def login_endpoint(payload: LoginRequest, background_tasks: BackgroundTasks):
     return login(payload, background_tasks)
+
+
+@app.post("/auth/refresh")
+def refresh_session(payload: RefreshSessionRequest):
+    response = requests.post(
+        f"{AUTH_URL}/token?grant_type=refresh_token",
+        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+        json={"refresh_token": payload.refresh_token},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Your session expired. Please sign in again.")
+
+    session = response.json()
+    return {
+        "access_token": session["access_token"],
+        "refresh_token": session["refresh_token"],
+    }
 
 
 @app.post("/auth/signup", status_code=201)
@@ -1096,6 +1119,8 @@ def normalize_import_row(row):
     address = ", ".join(part for part in address_parts if part)
     if address:
         normalized["address"] = address
+    if normalized.get("email"):
+        normalized["email"] = normalized["email"].casefold()
     return normalized
 
 
@@ -1178,24 +1203,63 @@ def read_import_rows(file_path: Path, extension: str):
     ]
 
 
+def _duplicate_identity(customer, key):
+    value = str(customer.get(key) or "").strip()
+    if key == "phone":
+        return re.sub(r"\D+", "", value)
+    if key == "email":
+        return value.casefold()
+    return value
+
+
+def _deduplicate_import_batch(customers, duplicate_keys):
+    unique_customers = []
+    seen_identities = set()
+    duplicates = 0
+    for customer in customers:
+        identities = {
+            (key, identity)
+            for key in duplicate_keys
+            if (identity := _duplicate_identity(customer, key))
+        }
+        if identities & seen_identities:
+            duplicates += 1
+            continue
+        unique_customers.append(customer)
+        seen_identities.update(identities)
+    return unique_customers, duplicates
+
+
 def _find_duplicates_batch(session, customers, duplicate_keys):
     duplicate_ids = {}
     for key in duplicate_keys:
-        values = sorted({customer.get(key) for customer in customers if customer.get(key)})
+        query_key = "normalized_phone" if key == "phone" else key
+        values = sorted(
+            {
+                identity
+                for customer in customers
+                if (identity := _duplicate_identity(customer, key))
+            }
+        )
         for start in range(0, len(values), IMPORT_REQUEST_BATCH_SIZE):
             value_chunk = values[start : start + IMPORT_REQUEST_BATCH_SIZE]
             encoded_values = ",".join(quote(value, safe="") for value in value_chunk)
             response = session.get(
-                f"{REST_URL}/customers?{key}=in.({encoded_values})&select=id,{key}",
+                f"{REST_URL}/customers?{query_key}=in.({encoded_values})&select=id,{query_key}",
                 headers=HEADERS,
                 timeout=10,
             )
             if response.status_code != 200:
                 raise ValueError(f"Unable to check duplicate {key}: {response.text}")
-            matches = {str(item.get(key)): item["id"] for item in response.json()}
+            matches = {
+                str(item.get(query_key) or "").casefold(): item["id"]
+                for item in response.json()
+                if item.get(query_key)
+            }
             for index, customer in enumerate(customers):
-                if index not in duplicate_ids and customer.get(key) in matches:
-                    duplicate_ids[index] = matches[customer[key]]
+                identity = _duplicate_identity(customer, key)
+                if index not in duplicate_ids and identity in matches:
+                    duplicate_ids[index] = matches[identity]
     return duplicate_ids
 
 
@@ -1261,6 +1325,10 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
                         valid_rows.append(row)
 
                 valid_customers = [_build_import_customer(row) for row in valid_rows]
+                valid_customers, repeated_in_file = _deduplicate_import_batch(
+                    valid_customers, selected_keys
+                )
+                skipped += repeated_in_file
 
                 duplicate_ids = _find_duplicates_batch(session, valid_customers, selected_keys)
                 new_customers = []

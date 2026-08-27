@@ -29,17 +29,53 @@ const APPEARANCE_OPTIONS = [
 ];
 
 let authToken = sessionStorage.getItem("onecrore-access-token") || "";
+let authRefreshToken = sessionStorage.getItem("onecrore-refresh-token") || "";
+let refreshSessionPromise = null;
 
-function setAuthToken(token) {
-  authToken = token || "";
+function setAuthSession(accessToken, refreshToken = "") {
+  authToken = accessToken || "";
+  authRefreshToken = refreshToken || "";
   if (authToken) sessionStorage.setItem("onecrore-access-token", authToken);
   else sessionStorage.removeItem("onecrore-access-token");
+  if (authRefreshToken) sessionStorage.setItem("onecrore-refresh-token", authRefreshToken);
+  else sessionStorage.removeItem("onecrore-refresh-token");
 }
 
-function apiFetch(url, options = {}) {
+async function refreshAuthSession() {
+  if (!authRefreshToken) return false;
+  if (refreshSessionPromise) return refreshSessionPromise;
+
+  refreshSessionPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: authRefreshToken }),
+  })
+    .then(async (response) => {
+      if (!response.ok) throw new Error("Unable to refresh session.");
+      const session = await response.json();
+      setAuthSession(session.access_token, session.refresh_token);
+      return true;
+    })
+    .catch(() => {
+      setAuthSession("", "");
+      window.dispatchEvent(new Event("onecrore-auth-expired"));
+      return false;
+    })
+    .finally(() => {
+      refreshSessionPromise = null;
+    });
+  return refreshSessionPromise;
+}
+
+async function apiFetch(url, options = {}) {
   const headers = new Headers(options.headers || {});
   if (authToken) headers.set("Authorization", `Bearer ${authToken}`);
-  return fetch(url, { ...options, headers });
+  const response = await fetch(url, { ...options, headers });
+  if (response.status !== 401 || !(await refreshAuthSession())) return response;
+
+  const retryHeaders = new Headers(options.headers || {});
+  retryHeaders.set("Authorization", `Bearer ${authToken}`);
+  return fetch(url, { ...options, headers: retryHeaders });
 }
 
 function Login({ onLogin }) {
@@ -82,7 +118,7 @@ function Login({ onLogin }) {
         setPassword("");
         return;
       }
-      setAuthToken(data.access_token);
+      setAuthSession(data.access_token, data.refresh_token);
       onLogin(data.user);
     } catch (loginError) {
       setError(loginError.message || "Unable to sign in.");
@@ -2197,6 +2233,16 @@ function App() {
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      setLoggedIn(false);
+      setIsAdmin(false);
+      setCurrentUser(null);
+    };
+    window.addEventListener("onecrore-auth-expired", handleExpiredSession);
+    return () => window.removeEventListener("onecrore-auth-expired", handleExpiredSession);
+  }, []);
+
   if (recoveryToken) {
     return (
       <PasswordRecovery
@@ -2220,7 +2266,7 @@ function App() {
         setCurrentUser((existingUser) => ({ ...existingUser, ...updatedUser }));
       }}
       onLogout={() => {
-        setAuthToken("");
+        setAuthSession("", "");
         setLoggedIn(false);
         setIsAdmin(false);
         setCurrentUser(null);

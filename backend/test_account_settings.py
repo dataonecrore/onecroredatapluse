@@ -64,7 +64,9 @@ class AccountSettingsTests(unittest.TestCase):
     def test_login_returns_profile_for_settings_and_sidebar(
         self, request_post, request_get, record_login_event
     ):
-        request_post.return_value = FakeResponse({"access_token": "user-token"})
+        request_post.return_value = FakeResponse(
+            {"access_token": "user-token", "refresh_token": "refresh-token"}
+        )
         request_get.return_value = FakeResponse(
             {
                 "id": "user-id",
@@ -87,7 +89,35 @@ class AccountSettingsTests(unittest.TestCase):
                 "role": "user",
             },
         )
+        self.assertEqual(result["refresh_token"], "refresh-token")
         record_login_event.assert_called_once()
+
+    @patch("backend.main.requests.post")
+    def test_refresh_session_rotates_access_and_refresh_tokens(self, request_post):
+        request_post.return_value = FakeResponse(
+            {"access_token": "fresh-access", "refresh_token": "fresh-refresh"}
+        )
+
+        result = main.refresh_session(main.RefreshSessionRequest(refresh_token="old-refresh"))
+
+        self.assertEqual(
+            result,
+            {"access_token": "fresh-access", "refresh_token": "fresh-refresh"},
+        )
+        self.assertIn("grant_type=refresh_token", request_post.call_args.args[0])
+        self.assertEqual(
+            request_post.call_args.kwargs["json"], {"refresh_token": "old-refresh"}
+        )
+
+    @patch("backend.main.requests.post")
+    def test_refresh_session_rejects_an_expired_refresh_token(self, request_post):
+        request_post.return_value = FakeResponse(status_code=400)
+
+        with self.assertRaises(main.HTTPException) as raised:
+            main.refresh_session(main.RefreshSessionRequest(refresh_token="expired-refresh"))
+
+        self.assertEqual(raised.exception.status_code, 401)
+        self.assertEqual(raised.exception.detail, "Your session expired. Please sign in again.")
 
     @patch("backend.main.requests.put")
     def test_authenticated_user_can_update_their_own_name(self, request_put):
