@@ -69,6 +69,13 @@ New mode with phone duplicate handling. Set `MAX_IMPORT_SIZE_BYTES` to the
 maximum chunk size supported by the API host and reverse proxy; split a 30M-row
 source into immutable chunks rather than sending one enormous request.
 
+The standard browser importer processes 2,000 spreadsheet rows at a time and
+writes new customers in 1,000-row API requests. Duplicate lookups remain at 250
+values per request to keep request URLs bounded. These defaults can be tuned
+server-side with `IMPORT_ROW_BATCH_SIZE`, `IMPORT_WRITE_BATCH_SIZE`, and
+`IMPORT_LOOKUP_BATCH_SIZE`. Production `COPY` imports use 50,000-row batches by
+default and support `--batch-size` values up to 250,000.
+
 For password recovery, add `FRONTEND_URL` to Supabase Authentication URL Configuration as an allowed redirect URL and set the same value in the backend deployment.
 
 For production, use `FRONTEND_URL=https://onecroredatapluse.vercel.app`. In Supabase **Authentication → URL Configuration**, set the Site URL to the same address and add that exact address to Redirect URLs. Every hosted deployment rejects a loopback recovery redirect and falls back to the production Vercel URL, but the Railway variable should still be corrected rather than left as `localhost`.

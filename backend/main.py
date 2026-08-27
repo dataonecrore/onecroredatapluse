@@ -73,7 +73,9 @@ IMPORT_DIR.mkdir(exist_ok=True)
 SMALL_IMPORT_SIZE = int(os.getenv("SMALL_IMPORT_SIZE_BYTES", str(100 * 1024 * 1024)))
 MAX_IMPORT_SIZE = int(os.getenv("MAX_IMPORT_SIZE_BYTES", str(5 * 1024 * 1024 * 1024)))
 ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
-IMPORT_REQUEST_BATCH_SIZE = 250
+IMPORT_ROW_BATCH_SIZE = int(os.getenv("IMPORT_ROW_BATCH_SIZE", "2000"))
+IMPORT_LOOKUP_BATCH_SIZE = int(os.getenv("IMPORT_LOOKUP_BATCH_SIZE", "250"))
+IMPORT_WRITE_BATCH_SIZE = int(os.getenv("IMPORT_WRITE_BATCH_SIZE", "1000"))
 IMPORT_CUSTOMER_FIELDS = (
     "name",
     "email",
@@ -1241,8 +1243,8 @@ def _find_duplicates_batch(session, customers, duplicate_keys):
                 if (identity := _duplicate_identity(customer, key))
             }
         )
-        for start in range(0, len(values), IMPORT_REQUEST_BATCH_SIZE):
-            value_chunk = values[start : start + IMPORT_REQUEST_BATCH_SIZE]
+        for start in range(0, len(values), IMPORT_LOOKUP_BATCH_SIZE):
+            value_chunk = values[start : start + IMPORT_LOOKUP_BATCH_SIZE]
             encoded_values = ",".join(quote(value, safe="") for value in value_chunk)
             response = session.get(
                 f"{REST_URL}/customers?{query_key}=in.({encoded_values})&select=id,{query_key}",
@@ -1264,16 +1266,16 @@ def _find_duplicates_batch(session, customers, duplicate_keys):
 
 
 def _create_customers_batch(session, customers):
-    if not customers:
-        return
-    response = session.post(
-        f"{REST_URL}/customers",
-        headers=HEADERS,
-        json=customers,
-        timeout=30,
-    )
-    if response.status_code not in (200, 201):
-        raise ValueError(response.text)
+    for start in range(0, len(customers), IMPORT_WRITE_BATCH_SIZE):
+        customer_chunk = customers[start : start + IMPORT_WRITE_BATCH_SIZE]
+        response = session.post(
+            f"{REST_URL}/customers",
+            headers=HEADERS,
+            json=customer_chunk,
+            timeout=30,
+        )
+        if response.status_code not in (200, 201):
+            raise ValueError(response.text)
 
 
 def _build_import_customer(row):
@@ -1310,7 +1312,7 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
         with requests.Session() as session:
-            while row_chunk := list(islice(rows, IMPORT_REQUEST_BATCH_SIZE)):
+            while row_chunk := list(islice(rows, IMPORT_ROW_BATCH_SIZE)):
                 valid_rows = []
                 blank_rows_in_chunk = 0
                 for row in row_chunk:
@@ -1359,8 +1361,11 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
                     invalid=invalid,
                     blank_rows_ignored=blank_rows_ignored,
                     invalid_reasons=dict(invalid_reasons),
-                    progress=min(99, scanned // IMPORT_REQUEST_BATCH_SIZE),
-                    message=f"Importing rows... {scanned} spreadsheet rows scanned",
+                    progress=min(99, scanned // IMPORT_ROW_BATCH_SIZE),
+                    message=(
+                        f"Importing {IMPORT_ROW_BATCH_SIZE:,}-row chunks... "
+                        f"{scanned:,} spreadsheet rows scanned"
+                    ),
                 )
 
         update_import_job(
