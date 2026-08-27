@@ -793,7 +793,7 @@ function CustomerImport() {
                 )}
                 {(job.invalid || 0) > 0 && (
                   <p>
-                    Invalid reasons: {(job.invalid_reasons?.missing_name || 0).toLocaleString()} missing name, {(job.invalid_reasons?.missing_phone || 0).toLocaleString()} missing phone, {(job.invalid_reasons?.missing_name_and_phone || 0).toLocaleString()} missing both.
+                    Invalid reason: {(job.invalid_reasons?.missing_name || 0).toLocaleString()} missing customer name.
                   </p>
                 )}
               </div>
