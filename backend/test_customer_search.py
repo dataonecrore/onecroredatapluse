@@ -1,5 +1,6 @@
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 
@@ -22,10 +23,22 @@ class FakeResponse:
 class CustomerSearchTests(unittest.TestCase):
     def test_normalizes_name_without_allowing_wildcard_only_query(self):
         self.assertEqual(main.normalize_name_query("  Asha   RAO  "), "asha rao")
+        self.assertEqual(
+            main.normalize_name_query("Sai, Prasadgoud, Sanam"),
+            "sai prasadgoud sanam",
+        )
         with self.assertRaises(ValueError):
             main.normalize_name_query("**")
         with self.assertRaises(ValueError):
             main.normalize_name_query("ab")
+        with self.assertRaises(ValueError):
+            main.normalize_name_query("Sai Pr")
+
+    def test_builds_order_independent_word_prefix_query(self):
+        self.assertEqual(
+            main.build_name_prefix_tsquery("sai san prasadgoud"),
+            "sai:* & san:* & prasadgoud:*",
+        )
 
     def test_normalizes_phone_to_digits(self):
         self.assertEqual(main.normalize_phone_query("+91 98765-43210"), "919876543210")
@@ -60,22 +73,49 @@ class CustomerSearchTests(unittest.TestCase):
         self.assertEqual(params["id"], "gt.10")
         self.assertEqual(params["limit"], "2")
 
-    @patch("backend.main.requests.get")
-    def test_name_search_uses_trigram_backed_normalized_column(self, request_get):
-        request_get.return_value = FakeResponse([])
+    @patch("backend.main.requests.post")
+    def test_name_search_uses_indexed_word_prefix_rpc(self, request_post):
+        request_post.return_value = FakeResponse([])
 
         result = main.search_customers(
-            q="  Asha ",
+            q="Sai, Sanam",
             field="name",
             limit=25,
-            cursor=None,
+            cursor=100,
             _={"id": "user"},
         )
 
         self.assertEqual(result["items"], [])
-        params = request_get.call_args.kwargs["params"]
-        self.assertEqual(params["normalized_name"], "like.asha*")
+        self.assertEqual(result["query"], "sai sanam")
+        self.assertTrue(
+            request_post.call_args.args[0].endswith(
+                "/rpc/search_customers_by_name_prefixes"
+            )
+        )
+        payload = request_post.call_args.kwargs["json"]
+        self.assertEqual(payload["p_query"], "sai:* & sanam:*")
+        self.assertEqual(payload["p_limit"], 26)
+        self.assertEqual(payload["p_after_id"], 100)
+        params = request_post.call_args.kwargs["params"]
+        self.assertEqual(params["select"], main.CUSTOMER_SEARCH_COLUMNS)
         self.assertNotIn("address", params)
+
+    def test_name_search_migration_is_indexed_and_service_role_only(self):
+        migration_dir = Path(__file__).parents[1] / "supabase" / "migrations"
+        index_sql = (
+            migration_dir / "20260828072859_add_customer_name_word_prefix_index.sql"
+        ).read_text(encoding="utf-8").casefold()
+        function_sql = (
+            migration_dir / "20260828072900_add_customer_name_word_prefix_search.sql"
+        ).read_text(encoding="utf-8").casefold()
+
+        self.assertIn("create index concurrently", index_sql)
+        self.assertIn("using gin", index_sql)
+        self.assertIn("to_tsvector('simple'::regconfig", index_sql)
+        self.assertIn("security invoker", function_sql)
+        self.assertIn("to_tsquery('simple'::regconfig", function_sql)
+        self.assertIn("revoke execute", function_sql)
+        self.assertIn("grant execute", function_sql)
 
     @patch("backend.main.requests.get")
     def test_voter_id_search_uses_normalized_identity_column(self, request_get):

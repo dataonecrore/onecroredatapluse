@@ -1613,11 +1613,13 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
     if (demoMode) {
       const normalizedPhone = query.replace(/\D/g, "");
       const normalizedIdentity = query.replace(/[^a-z0-9]/gi, "").toLowerCase();
+      const nameTerms = query.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
       const matches = DEMO_CUSTOMERS.filter((customer) => {
         if (resolvedField === "phone") return String(customer.phone || "").replace(/\D/g, "").startsWith(normalizedPhone);
         if (resolvedField === "voter_id") return String(customer.voter_id_number || "").replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(normalizedIdentity);
         if (resolvedField === "aadhar") return String(customer.aadhar_card_number || "").replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(normalizedIdentity);
-        return String(customer.name || "").toLowerCase().includes(query.toLowerCase());
+        const nameWords = String(customer.name || "").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+        return nameTerms.every((term) => nameWords.some((word) => word.startsWith(term)));
       });
       setCustomers(matches);
       setNextCursor(null);
