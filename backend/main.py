@@ -73,7 +73,7 @@ IMPORT_DIR.mkdir(exist_ok=True)
 SMALL_IMPORT_SIZE = int(os.getenv("SMALL_IMPORT_SIZE_BYTES", str(100 * 1024 * 1024)))
 MAX_IMPORT_SIZE = int(os.getenv("MAX_IMPORT_SIZE_BYTES", str(5 * 1024 * 1024 * 1024)))
 ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
-IMPORT_ROW_BATCH_SIZE = int(os.getenv("IMPORT_ROW_BATCH_SIZE", "2000"))
+IMPORT_ROW_BATCH_SIZE = int(os.getenv("IMPORT_ROW_BATCH_SIZE", "5000"))
 IMPORT_LOOKUP_BATCH_SIZE = int(os.getenv("IMPORT_LOOKUP_BATCH_SIZE", "250"))
 IMPORT_WRITE_BATCH_SIZE = int(os.getenv("IMPORT_WRITE_BATCH_SIZE", "1000"))
 IMPORT_CUSTOMER_FIELDS = (
@@ -1211,7 +1211,23 @@ def _duplicate_identity(customer, key):
         return re.sub(r"\D+", "", value)
     if key == "email":
         return value.casefold()
+    if key == "voter_id_number":
+        return re.sub(r"[^a-zA-Z0-9]+", "", value).casefold()
     return value
+
+
+def _customer_duplicate_identities(customer, duplicate_keys):
+    identities = {
+        (key, identity)
+        for key in duplicate_keys
+        if (identity := _duplicate_identity(customer, key))
+    }
+    stable_identities = {
+        identity
+        for identity in identities
+        if identity[0] == "voter_id_number"
+    }
+    return stable_identities or identities
 
 
 def _deduplicate_import_batch(customers, duplicate_keys):
@@ -1219,11 +1235,7 @@ def _deduplicate_import_batch(customers, duplicate_keys):
     seen_identities = set()
     duplicates = 0
     for customer in customers:
-        identities = {
-            (key, identity)
-            for key in duplicate_keys
-            if (identity := _duplicate_identity(customer, key))
-        }
+        identities = _customer_duplicate_identities(customer, duplicate_keys)
         if identities & seen_identities:
             duplicates += 1
             continue
@@ -1234,13 +1246,21 @@ def _deduplicate_import_batch(customers, duplicate_keys):
 
 def _find_duplicates_batch(session, customers, duplicate_keys):
     duplicate_ids = {}
+    customer_identities = [
+        _customer_duplicate_identities(customer, duplicate_keys)
+        for customer in customers
+    ]
     for key in duplicate_keys:
-        query_key = "normalized_phone" if key == "phone" else key
+        query_key = {
+            "phone": "normalized_phone",
+            "voter_id_number": "normalized_voter_id",
+        }.get(key, key)
         values = sorted(
             {
                 identity
-                for customer in customers
-                if (identity := _duplicate_identity(customer, key))
+                for identities in customer_identities
+                for identity_key, identity in identities
+                if identity_key == key
             }
         )
         for start in range(0, len(values), IMPORT_LOOKUP_BATCH_SIZE):
@@ -1258,8 +1278,15 @@ def _find_duplicates_batch(session, customers, duplicate_keys):
                 for item in response.json()
                 if item.get(query_key)
             }
-            for index, customer in enumerate(customers):
-                identity = _duplicate_identity(customer, key)
+            for index, identities in enumerate(customer_identities):
+                identity = next(
+                    (
+                        value
+                        for identity_key, value in identities
+                        if identity_key == key
+                    ),
+                    "",
+                )
                 if index not in duplicate_ids and identity in matches:
                     duplicate_ids[index] = matches[identity]
     return duplicate_ids
@@ -1419,7 +1446,7 @@ async def upload_customers(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     import_mode: str = Form("update"),
-    duplicate_keys: str = Form("phone,email"),
+    duplicate_keys: str = Form("phone,email,voter_id_number"),
     _: dict = Depends(require_admin),
 ):
     extension = Path(file.filename or "").suffix.lower()

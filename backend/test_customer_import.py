@@ -16,7 +16,7 @@ from backend import main
 
 class CustomerImportTests(unittest.TestCase):
     def test_standard_import_uses_larger_processing_and_write_batches(self):
-        self.assertEqual(main.IMPORT_ROW_BATCH_SIZE, 2_000)
+        self.assertEqual(main.IMPORT_ROW_BATCH_SIZE, 5_000)
         self.assertEqual(main.IMPORT_WRITE_BATCH_SIZE, 1_000)
         self.assertEqual(main.IMPORT_LOOKUP_BATCH_SIZE, 250)
 
@@ -97,6 +97,37 @@ class CustomerImportTests(unittest.TestCase):
         create_batch.assert_called_once()
         self.assertEqual(len(create_batch.call_args.args[1]), 2)
 
+    @patch("backend.main._create_customers_batch")
+    @patch("backend.main._find_duplicates_batch", return_value={})
+    @patch("backend.main.iter_import_rows")
+    def test_standard_import_processes_five_thousand_rows_per_cycle(
+        self, iter_rows, find_duplicates, create_batch
+    ):
+        iter_rows.return_value = iter(
+            {
+                "name": f"Customer {index}",
+                "phone": str(9_000_000_000 + index),
+            }
+            for index in range(5_001)
+        )
+        job_id = "five-thousand-row-cycle-test"
+        main.import_jobs[job_id] = {}
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as source:
+            source_path = Path(source.name)
+
+        main.import_customers(job_id, source_path, ".xlsx", "new", "phone")
+
+        job = main.import_jobs.pop(job_id)
+        self.assertEqual(job["status"], "ready")
+        self.assertEqual(
+            [len(call.args[1]) for call in find_duplicates.call_args_list],
+            [5_000, 1],
+        )
+        self.assertEqual(
+            [len(call.args[1]) for call in create_batch.call_args_list],
+            [5_000, 1],
+        )
+
     def test_duplicate_lookup_batches_values_by_key(self):
         class Response:
             status_code = 200
@@ -168,6 +199,63 @@ class CustomerImportTests(unittest.TestCase):
 
         self.assertEqual([customer["name"] for customer in unique], ["First", "Unique"])
         self.assertEqual(duplicate_count, 2)
+
+    def test_shared_phone_does_not_merge_customers_with_different_voter_ids(self):
+        customers = [
+            {
+                "name": "Sreenivas Murthy",
+                "phone": "9246842781",
+                "voter_id_number": "GBZ0000001",
+            },
+            {
+                "name": "Sanam Prema Latha",
+                "phone": "9246842781",
+                "voter_id_number": "GBZ7125826",
+            },
+        ]
+
+        unique, duplicate_count = main._deduplicate_import_batch(
+            customers, ["phone", "voter_id_number"]
+        )
+
+        self.assertEqual([customer["name"] for customer in unique], [
+            "Sreenivas Murthy",
+            "Sanam Prema Latha",
+        ])
+        self.assertEqual(duplicate_count, 0)
+
+    def test_voter_id_lookup_takes_priority_over_shared_phone(self):
+        class Response:
+            status_code = 200
+            text = ""
+
+            def json(self):
+                return [{"id": 42, "normalized_voter_id": "gbz7125826"}]
+
+        class Session:
+            def __init__(self):
+                self.calls = []
+
+            def get(self, url, **kwargs):
+                self.calls.append(url)
+                return Response()
+
+        session = Session()
+        duplicate_ids = main._find_duplicates_batch(
+            session,
+            [
+                {
+                    "name": "Sanam Prema Latha",
+                    "phone": "9246842781",
+                    "voter_id_number": "GBZ 7125826",
+                }
+            ],
+            ["phone", "voter_id_number"],
+        )
+
+        self.assertEqual(duplicate_ids, {0: 42})
+        self.assertEqual(len(session.calls), 1)
+        self.assertIn("normalized_voter_id=in.(gbz7125826)", session.calls[0])
 
     @patch("backend.main._create_customers_batch")
     @patch("backend.main._find_duplicates_batch", return_value={})
