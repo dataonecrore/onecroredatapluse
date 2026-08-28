@@ -17,7 +17,7 @@ from backend import main
 class CustomerImportTests(unittest.TestCase):
     def test_standard_import_uses_larger_processing_and_write_batches(self):
         self.assertEqual(main.IMPORT_ROW_BATCH_SIZE, 5_000)
-        self.assertEqual(main.IMPORT_WRITE_BATCH_SIZE, 1_000)
+        self.assertEqual(main.IMPORT_WRITE_BATCH_SIZE, 500)
         self.assertEqual(main.IMPORT_LOOKUP_BATCH_SIZE, 250)
 
     def test_import_threshold_defaults_to_one_hundred_megabytes(self):
@@ -293,9 +293,11 @@ class CustomerImportTests(unittest.TestCase):
         class Session:
             def __init__(self):
                 self.payload = None
+                self.headers = None
 
             def post(self, url, **kwargs):
                 self.payload = kwargs["json"]
+                self.headers = kwargs["headers"]
                 return Response()
 
         session = Session()
@@ -304,6 +306,7 @@ class CustomerImportTests(unittest.TestCase):
         main._create_customers_batch(session, customers)
 
         self.assertEqual(session.payload, customers)
+        self.assertEqual(session.headers["Prefer"], "return=minimal")
 
     def test_customer_creation_splits_large_chunks_into_safe_write_batches(self):
         class Response:
@@ -326,7 +329,152 @@ class CustomerImportTests(unittest.TestCase):
 
         main._create_customers_batch(session, customers)
 
-        self.assertEqual([len(payload) for payload in session.payloads], [1_000, 1_000, 500])
+        self.assertEqual(
+            [len(payload) for payload in session.payloads],
+            [500, 500, 500, 500, 500],
+        )
+
+    def test_statement_timeout_splits_only_the_failed_write_batch(self):
+        class Response:
+            text = '{"code":"57014","message":"canceling statement due to statement timeout"}'
+
+            def __init__(self, timed_out):
+                self.status_code = 500 if timed_out else 201
+                self.timed_out = timed_out
+
+            def json(self):
+                return {"code": "57014"} if self.timed_out else {}
+
+        class Session:
+            def __init__(self):
+                self.batch_sizes = []
+
+            def post(self, url, **kwargs):
+                batch_size = len(kwargs["json"])
+                self.batch_sizes.append(batch_size)
+                return Response(batch_size > 250)
+
+        session = Session()
+        customers = [
+            {"name": f"Customer {index}", "phone": str(index)}
+            for index in range(500)
+        ]
+
+        main._create_customers_batch(session, customers)
+
+        self.assertEqual(session.batch_sizes, [500, 250, 250])
+
+    def test_single_customer_statement_timeout_is_not_retried_recursively(self):
+        class Response:
+            status_code = 500
+            text = '{"code":"57014","message":"statement timeout"}'
+
+            def json(self):
+                return {"code": "57014"}
+
+        class Session:
+            def __init__(self):
+                self.calls = 0
+
+            def post(self, url, **kwargs):
+                self.calls += 1
+                return Response()
+
+        session = Session()
+
+        with self.assertRaisesRegex(ValueError, "statement timeout"):
+            main._create_customers_batch(
+                session,
+                [{"name": "Aarav", "phone": "9000000001"}],
+            )
+
+        self.assertEqual(session.calls, 1)
+
+    def test_timed_out_customer_update_is_retried_once(self):
+        class Response:
+            text = '{"code":"57014","message":"statement timeout"}'
+
+            def __init__(self, status_code):
+                self.status_code = status_code
+
+            def json(self):
+                return {"code": "57014"} if self.status_code == 500 else {}
+
+        class Session:
+            def __init__(self):
+                self.calls = []
+
+            def patch(self, url, **kwargs):
+                self.calls.append(kwargs)
+                return Response(500 if len(self.calls) == 1 else 204)
+
+        session = Session()
+
+        main._update_import_customer(
+            session,
+            42,
+            {"name": "Aarav", "phone": "9000000001"},
+        )
+
+        self.assertEqual(len(session.calls), 2)
+        self.assertTrue(
+            all(call["headers"]["Prefer"] == "return=minimal" for call in session.calls)
+        )
+
+    def test_non_timeout_write_error_is_not_retried(self):
+        class Response:
+            status_code = 409
+            text = '{"code":"23505","message":"duplicate key"}'
+
+            def json(self):
+                return {"code": "23505"}
+
+        class Session:
+            def __init__(self):
+                self.calls = 0
+
+            def post(self, url, **kwargs):
+                self.calls += 1
+                return Response()
+
+        session = Session()
+
+        with self.assertRaisesRegex(ValueError, "duplicate key"):
+            main._create_customers_batch(
+                session,
+                [{"name": "Aarav", "phone": "9000000001"}],
+            )
+
+        self.assertEqual(session.calls, 1)
+
+    @patch(
+        "backend.main._create_customers_batch",
+        side_effect=ValueError(
+            '{"code":"57014","message":"canceling statement due to statement timeout"}'
+        ),
+    )
+    @patch("backend.main._find_duplicates_batch", return_value={})
+    @patch("backend.main.iter_import_rows")
+    def test_import_failure_reports_spreadsheet_row_range(
+        self, iter_rows, _find_duplicates, _create_batch
+    ):
+        iter_rows.return_value = iter(
+            [
+                {"name": "Aarav", "phone": "9000000001"},
+                {"name": "Priya", "phone": "9000000002"},
+            ]
+        )
+        job_id = "timeout-row-range-test"
+        main.import_jobs[job_id] = {}
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as source:
+            source_path = Path(source.name)
+
+        main.import_customers(job_id, source_path, ".xlsx", "new", "phone")
+
+        job = main.import_jobs.pop(job_id)
+        self.assertEqual(job["status"], "failed")
+        self.assertIn("Spreadsheet data rows 1-2", job["message"])
+        self.assertIn('"code":"57014"', job["message"])
 
     def test_vercel_preview_origins_are_allowed_by_cors(self):
         with TestClient(main.app) as client:

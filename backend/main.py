@@ -75,7 +75,7 @@ MAX_IMPORT_SIZE = int(os.getenv("MAX_IMPORT_SIZE_BYTES", str(5 * 1024 * 1024 * 1
 ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
 IMPORT_ROW_BATCH_SIZE = int(os.getenv("IMPORT_ROW_BATCH_SIZE", "5000"))
 IMPORT_LOOKUP_BATCH_SIZE = int(os.getenv("IMPORT_LOOKUP_BATCH_SIZE", "250"))
-IMPORT_WRITE_BATCH_SIZE = int(os.getenv("IMPORT_WRITE_BATCH_SIZE", "1000"))
+IMPORT_WRITE_BATCH_SIZE = int(os.getenv("IMPORT_WRITE_BATCH_SIZE", "500"))
 IMPORT_CUSTOMER_FIELDS = (
     "name",
     "email",
@@ -147,6 +147,7 @@ HEADERS = {
     "Prefer": "return=representation",
     "Authorization": f"Bearer {SUPABASE_KEY}",
 }
+IMPORT_WRITE_HEADERS = {**HEADERS, "Prefer": "return=minimal"}
 
 
 app = FastAPI(
@@ -1292,17 +1293,51 @@ def _find_duplicates_batch(session, customers, duplicate_keys):
     return duplicate_ids
 
 
+def _response_error_code(response):
+    try:
+        payload = response.json()
+    except (TypeError, ValueError):
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("code") or "")
+
+
+def _update_import_customer(session, customer_id, customer):
+    for attempt in range(2):
+        response = session.patch(
+            f"{REST_URL}/customers?id=eq.{quote(str(customer_id), safe='')}",
+            headers=IMPORT_WRITE_HEADERS,
+            json=customer,
+            timeout=10,
+        )
+        if response.status_code in (200, 204):
+            return
+        if _response_error_code(response) != "57014" or attempt == 1:
+            raise ValueError(response.text)
+
+
+def _create_customer_chunk(session, customer_chunk):
+    response = session.post(
+        f"{REST_URL}/customers",
+        headers=IMPORT_WRITE_HEADERS,
+        json=customer_chunk,
+        timeout=30,
+    )
+    if response.status_code in (200, 201):
+        return
+    if _response_error_code(response) == "57014" and len(customer_chunk) > 1:
+        midpoint = len(customer_chunk) // 2
+        _create_customer_chunk(session, customer_chunk[:midpoint])
+        _create_customer_chunk(session, customer_chunk[midpoint:])
+        return
+    raise ValueError(response.text)
+
+
 def _create_customers_batch(session, customers):
     for start in range(0, len(customers), IMPORT_WRITE_BATCH_SIZE):
         customer_chunk = customers[start : start + IMPORT_WRITE_BATCH_SIZE]
-        response = session.post(
-            f"{REST_URL}/customers",
-            headers=HEADERS,
-            json=customer_chunk,
-            timeout=30,
-        )
-        if response.status_code not in (200, 201):
-            raise ValueError(response.text)
+        _create_customer_chunk(session, customer_chunk)
 
 
 def _build_import_customer(row):
@@ -1340,6 +1375,8 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
         selected_keys = [key.strip() for key in duplicate_keys.split(",") if key.strip()]
         with requests.Session() as session:
             while row_chunk := list(islice(rows, IMPORT_ROW_BATCH_SIZE)):
+                chunk_start = scanned + 1
+                chunk_end = scanned + len(row_chunk)
                 valid_rows = []
                 blank_rows_in_chunk = 0
                 for row in row_chunk:
@@ -1353,32 +1390,32 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
                     else:
                         valid_rows.append(row)
 
-                valid_customers = [_build_import_customer(row) for row in valid_rows]
-                valid_customers, repeated_in_file = _deduplicate_import_batch(
-                    valid_customers, selected_keys
-                )
-                skipped += repeated_in_file
+                try:
+                    valid_customers = [_build_import_customer(row) for row in valid_rows]
+                    valid_customers, repeated_in_file = _deduplicate_import_batch(
+                        valid_customers, selected_keys
+                    )
+                    skipped += repeated_in_file
 
-                duplicate_ids = _find_duplicates_batch(session, valid_customers, selected_keys)
-                new_customers = []
-                for index, customer in enumerate(valid_customers):
-                    customer_id = duplicate_ids.get(index)
-                    if customer_id and import_mode == "new":
-                        skipped += 1
-                    elif customer_id:
-                        response = session.patch(
-                            f"{REST_URL}/customers?id=eq.{quote(str(customer_id), safe='')}",
-                            headers=HEADERS,
-                            json=customer,
-                            timeout=10,
-                        )
-                        if response.status_code not in (200, 204):
-                            raise ValueError(response.text)
-                        updated += 1
-                    else:
-                        new_customers.append(customer)
+                    duplicate_ids = _find_duplicates_batch(
+                        session, valid_customers, selected_keys
+                    )
+                    new_customers = []
+                    for index, customer in enumerate(valid_customers):
+                        customer_id = duplicate_ids.get(index)
+                        if customer_id and import_mode == "new":
+                            skipped += 1
+                        elif customer_id:
+                            _update_import_customer(session, customer_id, customer)
+                            updated += 1
+                        else:
+                            new_customers.append(customer)
 
-                _create_customers_batch(session, new_customers)
+                    _create_customers_batch(session, new_customers)
+                except Exception as error:
+                    raise ValueError(
+                        f"Spreadsheet data rows {chunk_start:,}-{chunk_end:,}: {error}"
+                    ) from error
                 created += len(new_customers)
                 scanned += len(row_chunk)
                 processed += len(row_chunk) - blank_rows_in_chunk

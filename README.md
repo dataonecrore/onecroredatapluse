@@ -70,11 +70,15 @@ maximum chunk size supported by the API host and reverse proxy; split a 30M-row
 source into immutable chunks rather than sending one enormous request.
 
 The standard browser importer processes 5,000 spreadsheet rows at a time and
-writes new customers in 1,000-row API requests. Duplicate lookups remain at 250
+writes new customers in 500-row API requests with minimal response payloads. A
+insert canceled by PostgreSQL statement timeout code `57014` is retried as two
+smaller atomic batches, while a timed-out single-customer update is retried
+once; other database errors fail immediately. Duplicate lookups remain at 250
 values per request to keep request URLs bounded. These defaults can be tuned
-server-side with `IMPORT_ROW_BATCH_SIZE`, `IMPORT_WRITE_BATCH_SIZE`, and
-`IMPORT_LOOKUP_BATCH_SIZE`. Production `COPY` imports use 50,000-row batches by
-default and support `--batch-size` values up to 250,000.
+server-side with `IMPORT_ROW_BATCH_SIZE`,
+`IMPORT_WRITE_BATCH_SIZE`, and `IMPORT_LOOKUP_BATCH_SIZE`. Production `COPY`
+imports use 50,000-row batches by default and support `--batch-size` values up
+to 250,000.
 
 The standard importer selects Voter ID, phone, and email duplicate checks by
 default. When a row has a Voter ID, its normalized Voter ID takes priority over
