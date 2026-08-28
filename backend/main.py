@@ -361,11 +361,18 @@ signup_rate_limiter = SignupRateLimiter()
 
 
 def normalize_name_query(value: str) -> str:
-    normalized = re.sub(r"\s+", " ", value.strip().casefold())
-    normalized = normalized.replace("*", "").replace("%", "")
-    if len(normalized) < 3 or not any(character.isalnum() for character in normalized):
-        raise ValueError("Enter at least 3 letters or numbers for a name search.")
-    return normalized
+    terms = re.findall(r"[^\W_]+", value.casefold(), flags=re.UNICODE)
+    if not terms or any(len(term) < 3 for term in terms):
+        raise ValueError(
+            "Enter at least 3 letters or numbers for each name part."
+        )
+    return " ".join(terms)
+
+
+def build_name_prefix_tsquery(normalized_query: str) -> str:
+    return " & ".join(
+        f"{term}:*" for term in normalized_query.split()
+    )
 
 
 def normalize_phone_query(value: str) -> str:
@@ -1943,27 +1950,42 @@ def search_customers(
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
-    params = {
-        "select": CUSTOMER_SEARCH_COLUMNS,
-        "order": "id.asc",
-        "limit": str(limit + 1),
-    }
-    if cursor is not None:
-        params["id"] = f"gt.{cursor}"
-    if resolved_field == "phone":
-        params["normalized_phone"] = f"like.{normalized_query}*"
-    elif resolved_field == "name":
-        params["normalized_name"] = f"like.{normalized_query}*"
+    if resolved_field == "name":
+        response = requests.post(
+            f"{REST_URL}/rpc/search_customers_by_name_prefixes",
+            headers=HEADERS,
+            params={"select": CUSTOMER_SEARCH_COLUMNS},
+            json={
+                "p_query": build_name_prefix_tsquery(normalized_query),
+                "p_limit": limit + 1,
+                "p_after_id": cursor,
+            },
+            timeout=10,
+        )
     else:
-        column = "normalized_voter_id" if resolved_field == "voter_id" else "normalized_aadhar"
-        params[column] = f"like.{normalized_query}*"
+        params = {
+            "select": CUSTOMER_SEARCH_COLUMNS,
+            "order": "id.asc",
+            "limit": str(limit + 1),
+        }
+        if cursor is not None:
+            params["id"] = f"gt.{cursor}"
+        if resolved_field == "phone":
+            params["normalized_phone"] = f"like.{normalized_query}*"
+        else:
+            column = (
+                "normalized_voter_id"
+                if resolved_field == "voter_id"
+                else "normalized_aadhar"
+            )
+            params[column] = f"like.{normalized_query}*"
 
-    response = requests.get(
-        f"{REST_URL}/customers",
-        headers=HEADERS,
-        params=params,
-        timeout=10,
-    )
+        response = requests.get(
+            f"{REST_URL}/customers",
+            headers=HEADERS,
+            params=params,
+            timeout=10,
+        )
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
