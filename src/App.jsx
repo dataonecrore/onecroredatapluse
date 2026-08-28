@@ -618,7 +618,11 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
 function CustomerImport() {
   const [file, setFile] = useState(null);
   const [importMode, setImportMode] = useState("update");
-  const [duplicateKeys, setDuplicateKeys] = useState({ phone: true, email: true });
+  const [duplicateKeys, setDuplicateKeys] = useState({
+    voter_id_number: true,
+    phone: true,
+    email: true,
+  });
   const [job, setJob] = useState(null);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -638,7 +642,7 @@ function CustomerImport() {
       return;
     }
 
-    if (!duplicateKeys.phone && !duplicateKeys.email) {
+    if (!Object.values(duplicateKeys).some(Boolean)) {
       setError("Select at least one duplicate identification field.");
       return;
     }
@@ -767,6 +771,7 @@ function CustomerImport() {
             </legend>
             <div className="mt-3 space-y-3 text-sm text-slate-600">
               {[
+                ["voter_id_number", "Voter ID number"],
                 ["phone", "Phone number"],
                 ["email", "Email address"],
               ].map(([key, label]) => (
