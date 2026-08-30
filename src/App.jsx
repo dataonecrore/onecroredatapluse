@@ -28,6 +28,19 @@ const APPEARANCE_OPTIONS = [
   ["night", "✧", "Night", "Deep navy"],
 ];
 
+const RELATIONSHIP_TYPE_LABELS = {
+  FTHR: "Father",
+  HSBN: "Husband",
+  MTHR: "Mother",
+  WIFE: "Wife",
+};
+
+function formatRelationshipType(value) {
+  const relationshipType = String(value || "").trim();
+  if (!relationshipType) return "-";
+  return RELATIONSHIP_TYPE_LABELS[relationshipType.toUpperCase()] || relationshipType;
+}
+
 let authToken = sessionStorage.getItem("onecrore-access-token") || "";
 let authRefreshToken = sessionStorage.getItem("onecrore-refresh-token") || "";
 let refreshSessionPromise = null;
@@ -556,7 +569,7 @@ function CustomerDetails({ customer, onEdit, onClose, onDelete, deleting }) {
           {[
             ["Name", customer.name],
             ["Email", customer.email || "-"],
-            ["Relationship type", customer.relationship_type || "-"],
+            ["Relationship type", formatRelationshipType(customer.relationship_type)],
             ["Relationship name", customer.relationship_name || "-"],
             ["Voter ID number", customer.voter_id_number || "-"],
             ["Aadhar card number", customer.aadhar_card_number || "-"],
@@ -2062,7 +2075,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                             {customer.whatsapp_phone || "-"}
                           </td>
 
-                          <td className="px-5 py-4 text-sm text-slate-600">{customer.relationship_type || "-"}</td>
+                          <td className="px-5 py-4 text-sm text-slate-600">{formatRelationshipType(customer.relationship_type)}</td>
                           <td className="px-5 py-4 text-sm text-slate-600">{customer.relationship_name || "-"}</td>
                           <td className="px-5 py-4 text-sm text-slate-600">{customer.voter_id_number || "-"}</td>
                           <td className="px-5 py-4 text-sm text-slate-600">{customer.aadhar_card_number || "-"}</td>
@@ -2110,7 +2123,7 @@ function Dashboard({ onLogout, theme, onThemeChange, isAdmin, user, onUserUpdate
                           {customer.phone || "-"}
                         </p>
                         <p><span className="font-medium text-slate-700">Alternate Number:</span>{" "}{customer.whatsapp_phone || "-"}</p>
-                        <p><span className="font-medium text-slate-700">Relationship Type:</span>{" "}{customer.relationship_type || "-"}</p>
+                        <p><span className="font-medium text-slate-700">Relationship Type:</span>{" "}{formatRelationshipType(customer.relationship_type)}</p>
                         <p><span className="font-medium text-slate-700">Relationship Name:</span>{" "}{customer.relationship_name || "-"}</p>
                         <p><span className="font-medium text-slate-700">Voter ID Number:</span>{" "}{customer.voter_id_number || "-"}</p>
                         <p><span className="font-medium text-slate-700">Aadhar Card Number:</span>{" "}{customer.aadhar_card_number || "-"}</p>
