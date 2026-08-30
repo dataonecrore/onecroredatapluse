@@ -670,6 +670,24 @@ class CustomerImportTests(unittest.TestCase):
             },
         )
 
+    def test_misspelled_relationship_name_header_is_preserved(self):
+        row = main.normalize_import_row(
+            {
+                "Name": "Suresh Jetta",
+                "Phone Number": 9502262279,
+                "Alternate Number": None,
+                "Relationship type": "FTHR",
+                "Rationaship Name": "Anjaneyulu Jetta",
+                "Voter Id": "NYY1219724",
+                "House No": "2-46",
+                "Village": "BONDUGULA",
+                "Post office": "BONDUGULA",
+                "Pincode": 508105,
+            }
+        )
+
+        self.assertEqual(row["relationship_name"], "Anjaneyulu Jetta")
+
     def test_customer_phone_header_is_optional(self):
         main.validate_import_headers(["Customer Name", "Customer Address"])
 

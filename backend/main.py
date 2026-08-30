@@ -121,6 +121,7 @@ IMPORT_HEADER_ALIASES = {
     "email address": "email",
     "relationship type": "relationship_type",
     "relationship name": "relationship_name",
+    "rationaship name": "relationship_name",
     "father name": "relationship_name",
     "father s name": "relationship_name",
     "father's name": "relationship_name",
