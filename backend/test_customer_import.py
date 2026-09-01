@@ -19,6 +19,7 @@ class CustomerImportTests(unittest.TestCase):
         self.assertEqual(main.IMPORT_ROW_BATCH_SIZE, 5_000)
         self.assertEqual(main.IMPORT_WRITE_BATCH_SIZE, 500)
         self.assertEqual(main.IMPORT_LOOKUP_BATCH_SIZE, 250)
+        self.assertEqual(main.IMPORT_REST_TIMEOUT_SECONDS, 75)
 
     def test_import_threshold_defaults_to_one_hundred_megabytes(self):
         self.assertEqual(main.SMALL_IMPORT_SIZE, 100 * 1024 * 1024)
@@ -184,6 +185,116 @@ class CustomerImportTests(unittest.TestCase):
 
         self.assertEqual(duplicate_ids, {0: 11})
         self.assertIn("normalized_phone=in.(919876543210)", session.url)
+
+    def test_duplicate_lookup_splits_once_after_client_timeout(self):
+        class Response:
+            status_code = 200
+            text = ""
+
+            def json(self):
+                return []
+
+        class Session:
+            def __init__(self):
+                self.calls = []
+
+            def get(self, url, **kwargs):
+                self.calls.append((url, kwargs["timeout"]))
+                if len(self.calls) == 1:
+                    raise main.requests.exceptions.ReadTimeout("slow lookup")
+                return Response()
+
+        session = Session()
+        duplicate_ids = main._find_duplicates_batch(
+            session,
+            [
+                {"name": "First", "phone": "9000000001"},
+                {"name": "Second", "phone": "9000000002"},
+            ],
+            ["phone"],
+        )
+
+        self.assertEqual(duplicate_ids, {})
+        self.assertEqual(len(session.calls), 3)
+        self.assertTrue(all(timeout == 75 for _, timeout in session.calls))
+
+    def test_update_comparison_ignores_empty_values_and_email_case(self):
+        customer = main._build_import_customer(
+            {"name": "Aarav", "email": "aarav@example.com", "phone": "9000000001"}
+        )
+        existing = {
+            **customer,
+            "email": "AARAV@EXAMPLE.COM",
+            "notes": None,
+        }
+
+        self.assertEqual(main._build_import_customer_updates(existing, customer), {})
+
+    @patch("backend.main._create_customers_batch")
+    @patch("backend.main._update_import_customer")
+    @patch("backend.main._fetch_existing_import_customers")
+    @patch("backend.main._find_duplicates_batch", return_value={0: 42})
+    @patch("backend.main.iter_import_rows")
+    def test_update_import_skips_unchanged_existing_customer(
+        self,
+        iter_rows,
+        _find_duplicates,
+        fetch_existing,
+        update_customer,
+        create_batch,
+    ):
+        imported_customer = main._build_import_customer(
+            {"name": "Aarav", "phone": "9000000001"}
+        )
+        iter_rows.return_value = iter([{"name": "Aarav", "phone": "9000000001"}])
+        fetch_existing.return_value = {42: {"id": 42, **imported_customer}}
+        job_id = "unchanged-update-test"
+        main.import_jobs[job_id] = {}
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as source:
+            source_path = Path(source.name)
+
+        main.import_customers(job_id, source_path, ".xlsx", "update", "phone")
+
+        job = main.import_jobs.pop(job_id)
+        self.assertEqual(job["status"], "ready")
+        self.assertEqual(job["updated"], 0)
+        self.assertEqual(job["skipped"], 1)
+        update_customer.assert_not_called()
+        create_batch.assert_called_once_with(unittest.mock.ANY, [])
+
+    @patch("backend.main._create_customers_batch")
+    @patch("backend.main._update_import_customer")
+    @patch("backend.main._fetch_existing_import_customers")
+    @patch("backend.main._find_duplicates_batch", return_value={0: 42})
+    @patch("backend.main.iter_import_rows")
+    def test_update_import_writes_only_changed_fields(
+        self,
+        iter_rows,
+        _find_duplicates,
+        fetch_existing,
+        update_customer,
+        _create_batch,
+    ):
+        iter_rows.return_value = iter([{"name": "Aarav", "phone": "9000000002"}])
+        imported_customer = main._build_import_customer(
+            {"name": "Aarav", "phone": "9000000002"}
+        )
+        fetch_existing.return_value = {
+            42: {"id": 42, **imported_customer, "phone": "9000000001"}
+        }
+        job_id = "changed-update-test"
+        main.import_jobs[job_id] = {}
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as source:
+            source_path = Path(source.name)
+
+        main.import_customers(job_id, source_path, ".xlsx", "update", "phone")
+
+        job = main.import_jobs.pop(job_id)
+        self.assertEqual(job["status"], "ready")
+        self.assertEqual(job["updated"], 1)
+        update_customer.assert_called_once_with(
+            unittest.mock.ANY, 42, {"phone": "9000000002"}
+        )
 
     def test_duplicate_rows_in_same_batch_are_removed(self):
         customers = [

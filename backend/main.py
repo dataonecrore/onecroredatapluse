@@ -76,6 +76,7 @@ ALLOWED_IMPORT_EXTENSIONS = {".csv", ".xls", ".xlsx"}
 IMPORT_ROW_BATCH_SIZE = int(os.getenv("IMPORT_ROW_BATCH_SIZE", "5000"))
 IMPORT_LOOKUP_BATCH_SIZE = int(os.getenv("IMPORT_LOOKUP_BATCH_SIZE", "250"))
 IMPORT_WRITE_BATCH_SIZE = int(os.getenv("IMPORT_WRITE_BATCH_SIZE", "500"))
+IMPORT_REST_TIMEOUT_SECONDS = float(os.getenv("IMPORT_REST_TIMEOUT_SECONDS", "75"))
 IMPORT_CUSTOMER_FIELDS = (
     "name",
     "email",
@@ -1253,6 +1254,73 @@ def _deduplicate_import_batch(customers, duplicate_keys):
     return unique_customers, duplicates
 
 
+def _response_error_code(response):
+    try:
+        payload = response.json()
+    except (TypeError, ValueError):
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("code") or "")
+
+
+def _get_import_rows(
+    session,
+    filter_key,
+    values,
+    select_fields,
+    error_label,
+    allow_timeout_split=True,
+):
+    encoded_values = ",".join(quote(str(value), safe="") for value in values)
+    try:
+        response = session.get(
+            f"{REST_URL}/customers?{filter_key}=in.({encoded_values})&select={select_fields}",
+            headers=HEADERS,
+            timeout=IMPORT_REST_TIMEOUT_SECONDS,
+        )
+    except requests.exceptions.Timeout as error:
+        if allow_timeout_split and len(values) > 1:
+            midpoint = len(values) // 2
+            return _get_import_rows(
+                session,
+                filter_key,
+                values[:midpoint],
+                select_fields,
+                error_label,
+                allow_timeout_split=False,
+            ) + _get_import_rows(
+                session,
+                filter_key,
+                values[midpoint:],
+                select_fields,
+                error_label,
+                allow_timeout_split=False,
+            )
+        raise ValueError(
+            f"{error_label} timed out after {IMPORT_REST_TIMEOUT_SECONDS:g} seconds."
+        ) from error
+
+    if response.status_code == 200:
+        return response.json()
+    if _response_error_code(response) == "57014" and len(values) > 1:
+        midpoint = len(values) // 2
+        return _get_import_rows(
+            session,
+            filter_key,
+            values[:midpoint],
+            select_fields,
+            error_label,
+        ) + _get_import_rows(
+            session,
+            filter_key,
+            values[midpoint:],
+            select_fields,
+            error_label,
+        )
+    raise ValueError(f"{error_label}: {response.text}")
+
+
 def _find_duplicates_batch(session, customers, duplicate_keys):
     duplicate_ids = {}
     customer_identities = [
@@ -1274,17 +1342,16 @@ def _find_duplicates_batch(session, customers, duplicate_keys):
         )
         for start in range(0, len(values), IMPORT_LOOKUP_BATCH_SIZE):
             value_chunk = values[start : start + IMPORT_LOOKUP_BATCH_SIZE]
-            encoded_values = ",".join(quote(value, safe="") for value in value_chunk)
-            response = session.get(
-                f"{REST_URL}/customers?{query_key}=in.({encoded_values})&select=id,{query_key}",
-                headers=HEADERS,
-                timeout=10,
+            rows = _get_import_rows(
+                session,
+                query_key,
+                value_chunk,
+                f"id,{query_key}",
+                f"Unable to check duplicate {key}",
             )
-            if response.status_code != 200:
-                raise ValueError(f"Unable to check duplicate {key}: {response.text}")
             matches = {
                 str(item.get(query_key) or "").casefold(): item["id"]
-                for item in response.json()
+                for item in rows
                 if item.get(query_key)
             }
             for index, identities in enumerate(customer_identities):
@@ -1301,14 +1368,37 @@ def _find_duplicates_batch(session, customers, duplicate_keys):
     return duplicate_ids
 
 
-def _response_error_code(response):
-    try:
-        payload = response.json()
-    except (TypeError, ValueError):
-        return ""
-    if not isinstance(payload, dict):
-        return ""
-    return str(payload.get("code") or "")
+def _fetch_existing_import_customers(session, customer_ids):
+    existing_customers = {}
+    unique_ids = sorted(set(customer_ids))
+    select_fields = "id," + ",".join(IMPORT_CUSTOMER_FIELDS)
+    for start in range(0, len(unique_ids), IMPORT_LOOKUP_BATCH_SIZE):
+        id_chunk = unique_ids[start : start + IMPORT_LOOKUP_BATCH_SIZE]
+        rows = _get_import_rows(
+            session,
+            "id",
+            id_chunk,
+            select_fields,
+            "Unable to load existing customers for update comparison",
+        )
+        existing_customers.update(
+            {item["id"]: item for item in rows if item.get("id") is not None}
+        )
+    return existing_customers
+
+
+def _comparable_import_value(field, value):
+    normalized = str(value or "").strip()
+    return normalized.casefold() if field == "email" else normalized
+
+
+def _build_import_customer_updates(existing_customer, customer):
+    return {
+        field: customer.get(field)
+        for field in IMPORT_CUSTOMER_FIELDS
+        if _comparable_import_value(field, existing_customer.get(field))
+        != _comparable_import_value(field, customer.get(field))
+    }
 
 
 def _update_import_customer(session, customer_id, customer):
@@ -1317,7 +1407,7 @@ def _update_import_customer(session, customer_id, customer):
             f"{REST_URL}/customers?id=eq.{quote(str(customer_id), safe='')}",
             headers=IMPORT_WRITE_HEADERS,
             json=customer,
-            timeout=10,
+            timeout=IMPORT_REST_TIMEOUT_SECONDS,
         )
         if response.status_code in (200, 204):
             return
@@ -1330,7 +1420,7 @@ def _create_customer_chunk(session, customer_chunk):
         f"{REST_URL}/customers",
         headers=IMPORT_WRITE_HEADERS,
         json=customer_chunk,
-        timeout=30,
+        timeout=IMPORT_REST_TIMEOUT_SECONDS,
     )
     if response.status_code in (200, 201):
         return
@@ -1408,14 +1498,31 @@ def import_customers(job_id: str, file_path: Path, extension: str, import_mode: 
                     duplicate_ids = _find_duplicates_batch(
                         session, valid_customers, selected_keys
                     )
+                    existing_customers = (
+                        _fetch_existing_import_customers(
+                            session, duplicate_ids.values()
+                        )
+                        if import_mode == "update" and duplicate_ids
+                        else {}
+                    )
                     new_customers = []
                     for index, customer in enumerate(valid_customers):
                         customer_id = duplicate_ids.get(index)
                         if customer_id and import_mode == "new":
                             skipped += 1
                         elif customer_id:
-                            _update_import_customer(session, customer_id, customer)
-                            updated += 1
+                            existing_customer = existing_customers.get(customer_id)
+                            if existing_customer is None:
+                                new_customers.append(customer)
+                                continue
+                            updates = _build_import_customer_updates(
+                                existing_customer, customer
+                            )
+                            if updates:
+                                _update_import_customer(session, customer_id, updates)
+                                updated += 1
+                            else:
+                                skipped += 1
                         else:
                             new_customers.append(customer)
 
